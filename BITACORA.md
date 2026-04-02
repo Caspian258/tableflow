@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 1 — Backend: auth + seed
+## Fase actual: 1 — Backend: rutas core + Socket.io
 
 ---
 
@@ -143,5 +143,70 @@ Se definió la visión completa del proyecto en conversación inicial:
 
 ---
 
-> _Última actualización: Sesión 2 — Backend auth + seed completos_
+---
+
+### [Sesión 3] — Rutas core + Socket.io
+
+**Fecha:** 2026-04-02
+**Fase:** 1 — Backend
+
+#### Qué se hizo en esta sesión
+
+- [x] `server/src/lib/socket.ts` — inicialización de Socket.io con auth JWT y auto-join de rooms por rol
+- [x] `server/src/controllers/tables.controller.ts` — `GET /tables`, `PATCH /tables/:id/status`
+- [x] `server/src/controllers/menu.controller.ts` — `GET /menu` (categorías + platillos activos, precio como number)
+- [x] `server/src/controllers/orders.controller.ts` — `POST /orders`, `PATCH /orders/:id/status`
+- [x] `server/src/routes/tables.ts`, `menu.ts`, `orders.ts` — registradas en Fastify
+- [x] `server/src/index.ts` — Socket.io inicializado tras `app.ready()`
+
+#### Comportamientos implementados
+
+**Mesas:**
+- `GET /tables` — lista ordenada por número, cualquier rol autenticado
+- `PATCH /tables/:id/status` — cambia status, valida que la mesa pertenezca al tenant
+
+**Menú:**
+- `GET /menu` — solo categorías e ítems activos, `price` serializado como `number`
+
+**Órdenes:**
+- `POST /orders` — solo `waiter/manager/owner`; captura precios al momento; marca mesa como `occupied`; emite `order:new` a `restaurant:{id}:kitchen`
+- `PATCH /orders/:id/status` — transiciones válidas: `pending→in_progress→ready→delivered`; roles: kitchen avanza, waiter entrega/cancela, manager/owner todo; al `delivered` libera la mesa si no quedan órdenes activas; emite `order:status_changed` o `order:cancelled` a kitchen + floor
+
+**Socket.io:**
+- Auth por JWT en el handshake (`socket.handshake.auth.token`)
+- Kitchen → room `restaurant:{id}:kitchen` automáticamente
+- Waiter/manager/owner → room `restaurant:{id}:floor` automáticamente
+- Eventos tipados con `SocketEvent` de `@tableflow/shared`
+
+#### Decisiones técnicas
+
+- `getIO()` lanza error si Socket.io no está inicializado; los controllers lo capturan silenciosamente (permite tests sin socket)
+- Las transiciones de status están declaradas en `VALID_TRANSITIONS` — fácil de extender
+- Los precios de la orden se capturan de la BD en el momento de crear (`unitPrice`) — correcto para historial de ventas
+- `fetchOrderWithDetails()` centraliza la query para construir el `OrderDTO`
+
+#### Pruebas realizadas (curl)
+
+- `GET /health` ✓
+- `GET /tables` → 5 mesas ✓
+- `GET /menu` → 4 categorías, 13 platillos ✓
+- `POST /orders` → orden creada, mesa pasa a `occupied`, total calculado ✓
+- `PATCH status`: `pending→in_progress→ready→delivered` ✓
+- Transición inválida `delivered→in_progress` → error 400 ✓
+- Mesa vuelve a `available` al entregar ✓
+- `PATCH /tables/:id/status` → `reserved` ✓
+
+#### Próximos pasos (Sesión 4)
+
+1. **App de meseros (PWA)** — pantalla de login, lista de mesas, nueva orden
+   - Login con email/password → guardar accessToken en memoria (Zustand)
+   - Lista de mesas con colores por status
+   - Seleccionar mesa → pantalla para elegir platillos del menú
+   - Confirmar orden → `POST /orders`
+2. **GET /orders** — listar órdenes activas del restaurante (necesario para KDS y admin)
+3. **KDS (cocina)** — muestra órdenes `pending` e `in_progress`, botones para avanzar status
+
+---
+
+> _Última actualización: Sesión 3 — Rutas core + Socket.io completos_
 

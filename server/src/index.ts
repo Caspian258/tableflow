@@ -4,6 +4,10 @@ import jwt from '@fastify/jwt'
 import cookie from '@fastify/cookie'
 import sensible from '@fastify/sensible'
 import { authRoutes } from './routes/auth.js'
+import { tableRoutes } from './routes/tables.js'
+import { menuRoutes } from './routes/menu.js'
+import { orderRoutes } from './routes/orders.js'
+import { initSocket } from './lib/socket.js'
 
 const app = Fastify({
   logger: process.env.NODE_ENV !== 'test',
@@ -34,6 +38,14 @@ app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOStrin
 // ─── Rutas ────────────────────────────────────────────────────────────────────
 
 await app.register(authRoutes)
+await app.register(tableRoutes)
+await app.register(menuRoutes)
+await app.register(orderRoutes)
+
+// ─── Socket.io ────────────────────────────────────────────────────────────────
+
+await app.ready()
+initSocket(app.server, app)
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
