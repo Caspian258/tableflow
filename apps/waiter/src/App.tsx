@@ -1,0 +1,47 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useAppStore } from './store/index'
+import LoginPage from './pages/LoginPage'
+import TablesPage from './pages/TablesPage'
+import NewOrderPage from './pages/NewOrderPage'
+import OrderDetailPage from './pages/OrderDetailPage'
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const user = useAppStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/tables"
+          element={
+            <RequireAuth>
+              <TablesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orders/new/:tableId"
+          element={
+            <RequireAuth>
+              <NewOrderPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orders/:orderId"
+          element={
+            <RequireAuth>
+              <OrderDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/tables" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

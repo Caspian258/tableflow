@@ -94,6 +94,39 @@ function toOrderDTO(order: OrderWithDetails): OrderDTO {
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
+export async function listActiveOrders(request: FastifyRequest, reply: FastifyReply) {
+  const { restaurantId } = request.user
+  if (!restaurantId) return reply.code(403).send({ error: 'Acceso denegado' })
+
+  const orders = await prisma.order.findMany({
+    where: { restaurantId, status: { notIn: ['paid', 'cancelled'] } },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      tableId: true,
+      status: true,
+      notes: true,
+      createdAt: true,
+      readyAt: true,
+      deliveredAt: true,
+      table: { select: { number: true } },
+      waiter: { select: { name: true } },
+      items: {
+        select: {
+          id: true,
+          menuItemId: true,
+          quantity: true,
+          unitPrice: true,
+          notes: true,
+          menuItem: { select: { name: true } },
+        },
+      },
+    },
+  })
+
+  return reply.send({ data: orders.map(toOrderDTO) })
+}
+
 export async function createOrder(request: FastifyRequest, reply: FastifyReply) {
   const { sub: waiterId, restaurantId } = request.user
   if (!restaurantId) return reply.code(403).send({ error: 'Acceso denegado' })

@@ -63,6 +63,37 @@ export interface OrderDTO {
   total: number
 }
 
+// ─── Tables ────────────────────────────────────────────────────────────────
+
+export interface TableDTO {
+  id: string
+  number: number
+  name: string | null
+  capacity: number
+  status: TableStatus
+}
+
+// ─── Menu ──────────────────────────────────────────────────────────────────
+
+export interface MenuItemDTO {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  preparationMinutes: number
+  isAvailable: boolean
+  imageUrl: string | null
+  sortOrder: number
+}
+
+export interface MenuCategoryDTO {
+  id: string
+  name: string
+  description: string | null
+  sortOrder: number
+  items: MenuItemDTO[]
+}
+
 // ─── WebSocket Events ──────────────────────────────────────────────────────
 
 export type SocketEvent =

@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 1 — Backend: rutas core + Socket.io
+## Fase actual: 1 — App de meseros completa
 
 ---
 
@@ -208,5 +208,60 @@ Se definió la visión completa del proyecto en conversación inicial:
 
 ---
 
-> _Última actualización: Sesión 3 — Rutas core + Socket.io completos_
+---
+
+### [Sesión 4] — App de meseros (PWA)
+
+**Fecha:** 2026-04-02
+**Fase:** 1 — Frontend (waiter)
+
+#### Qué se hizo en esta sesión
+
+**Server:**
+- `GET /orders` — lista órdenes activas del restaurante (no paid/cancelled), necesario para el estado inicial de la app
+
+**packages/shared:**
+- `TableDTO`, `MenuItemDTO`, `MenuCategoryDTO` — tipos agregados (usados por waiter y futuros admin/kitchen)
+
+**apps/waiter — configuración:**
+- `index.html` — meta tags PWA (viewport, theme-color, apple-mobile-web-app)
+- `vite.config.ts` — VitePWA con manifest, workbox caching del menú, `service worker autoUpdate`
+- `tsconfig.json` — frontend TypeScript (target ES2020, moduleResolution bundler, jsx react-jsx)
+- `tailwind.config.js` + `postcss.config.js`
+- `public/icon.svg` — icono SVG verde con emoji 🍽
+- `package.json` — `"type": "module"` agregado
+
+**apps/waiter — código:**
+- `src/store/index.ts` — Zustand: auth, tables, menu (caché), orders, cart (draft de nueva orden)
+- `src/lib/api.ts` — fetch wrapper con auto-refresh de token (401 → `/auth/refresh` → retry)
+- `src/lib/socket.ts` — Socket.io-client: auth JWT en handshake, maneja `order:new`, `order:status_changed`, `order:cancelled`, `table:status_changed`
+- `src/App.tsx` — React Router con `RequireAuth` guard
+- `src/pages/LoginPage.tsx` — form email/password, conecta socket al hacer login
+- `src/pages/TablesPage.tsx` — grid 2 cols, colores por status, carga tablas + órdenes al montar
+- `src/pages/NewOrderPage.tsx` — tabs de categorías, selector de cantidad por ítem, notas por ítem, barra inferior con total y confirmación
+- `src/pages/OrderDetailPage.tsx` — status badge, lista de items, botón "Marcar como entregada" solo cuando status=ready, cancelar orden
+- `src/components/TableCard.tsx` — card con color por status, badge de orden activa
+
+**Infraestructura (arreglado):**
+- `packages/shared/tsconfig.json` — creado con `include: ["src"]` para evitar que el typecheck de shared levante archivos de otros workspaces
+- `apps/admin/tsconfig.json` y `apps/kitchen/tsconfig.json` — creados con `include: ["src"]` por la misma razón
+
+#### Flujos implementados
+
+1. **Login:** form → `POST /auth/login` → token en memoria Zustand → socket conectado → `/tables`
+2. **Lista de mesas:** carga `GET /tables` + `GET /orders` en paralelo → grid con colores + badge si tiene orden
+3. **Nueva orden:** mesa disponible → navega a `/orders/new/:tableId` → menú por categorías → cart → `POST /orders` → navega a detalle
+4. **Detalle de orden:** muestra status en tiempo real (Socket.io), botón "Entregada" cuando status=ready, cancelar en cualquier momento
+5. **Auto-refresh:** si el access token expira (401), intenta `POST /auth/refresh` automáticamente antes de volver a pedir login
+
+#### Próximos pasos (Sesión 5)
+
+1. **KDS (apps/kitchen)** — pantalla para cocina: lista de órdenes pending/in_progress, botones para marcar in_progress/ready, actualización en tiempo real
+2. **GET /orders/:id** — endpoint para obtener detalle de una orden por ID (útil si el mesero recarga la página)
+3. **Prueba completa de flujo** — login mesero → crear orden → login cocina → avanzar status → mesero entrega
+4. **App admin** — dashboard básico con listado de órdenes del día
+
+---
+
+> _Última actualización: Sesión 4 — App de meseros PWA completa_
 
