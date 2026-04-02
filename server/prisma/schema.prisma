@@ -1,0 +1,260 @@
+// schema.prisma — TableFlow Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── TENANT ──────────────────────────────────────────────────────────────────
+
+model Restaurant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // para URLs amigables
+  logoUrl     String?
+  address     String?
+  phone       String?
+  timezone    String   @default("America/Mexico_City")
+  currency    String   @default("MXN")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Configuración de la pantalla KDS
+  kitchenAlertSeconds Int @default(600) // alerta si orden tarda más de X segundos
+
+  // Relaciones
+  users          User[]
+  tables         Table[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  orders         Order[]
+  payments       Payment[]
+  subscription   Subscription?
+
+  @@map("restaurants")
+}
+
+// ─── USUARIOS Y AUTH ─────────────────────────────────────────────────────────
+
+enum UserRole {
+  superadmin
+  owner
+  manager
+  waiter
+  kitchen
+}
+
+model User {
+  id           String     @id @default(cuid())
+  restaurantId String?    // null solo para superadmin
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         UserRole
+  pin          String?    // PIN de 4 dígitos para login rápido en tablet
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  restaurant    Restaurant?    @relation(fields: [restaurantId], references: [id])
+  refreshTokens RefreshToken[]
+  orders        Order[]        @relation("WaiterOrders")
+
+  @@index([restaurantId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─── MESAS ───────────────────────────────────────────────────────────────────
+
+enum TableStatus {
+  available
+  occupied
+  reserved
+  cleaning
+}
+
+model Table {
+  id           String      @id @default(cuid())
+  restaurantId String
+  number       Int
+  name         String?     // "Terraza 1", "Barra 3", etc.
+  capacity     Int         @default(4)
+  status       TableStatus @default(available)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  orders     Order[]
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId])
+  @@map("tables")
+}
+
+// ─── MENÚ ────────────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id           String   @id @default(cuid())
+  restaurantId String
+  name         String
+  description  String?
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  items      MenuItem[]
+
+  @@index([restaurantId])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  imageUrl     String?
+  isActive     Boolean  @default(true)
+  isAvailable  Boolean  @default(true) // toggle rápido si se agotó
+  preparationMinutes Int @default(15)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant  Restaurant  @relation(fields: [restaurantId], references: [id])
+  category    MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+// ─── ÓRDENES ─────────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  pending     // recién creada, esperando confirmación de cocina
+  in_progress // cocina la está preparando
+  ready       // lista para entregar
+  delivered   // entregada al cliente
+  paid        // pagada y cerrada
+  cancelled   // cancelada
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  restaurantId String
+  tableId      String
+  waiterId     String
+  status       OrderStatus @default(pending)
+  notes        String?     // notas generales de la orden
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  readyAt      DateTime?   // cuando cocina la marcó lista
+  deliveredAt  DateTime?   // cuando el mesero la entregó
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  table      Table      @relation(fields: [tableId], references: [id])
+  waiter     User       @relation("WaiterOrders", fields: [waiterId], references: [id])
+  items      OrderItem[]
+  payment    Payment?
+
+  @@index([restaurantId])
+  @@index([tableId])
+  @@index([waiterId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int      @default(1)
+  unitPrice  Decimal  @db.Decimal(10, 2) // precio al momento de ordenar
+  notes      String?  // "sin cebolla", "término medio", etc.
+  createdAt  DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─── PAGOS ───────────────────────────────────────────────────────────────────
+
+enum PaymentMethod {
+  cash
+  card
+  transfer
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  restaurantId String
+  orderId      String        @unique
+  total        Decimal       @db.Decimal(10, 2)
+  tip          Decimal       @default(0) @db.Decimal(10, 2)
+  method       PaymentMethod @default(cash)
+  paidAt       DateTime      @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  order      Order      @relation(fields: [orderId], references: [id])
+
+  @@index([restaurantId])
+  @@map("payments")
+}
+
+// ─── SAAS / BILLING ──────────────────────────────────────────────────────────
+
+enum SubscriptionPlan {
+  trial   // 30 días gratis
+  basic   // plan básico
+  pro     // plan completo con analytics avanzado
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  cancelled
+  trialing
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  restaurantId     String             @unique
+  plan             SubscriptionPlan   @default(trial)
+  status           SubscriptionStatus @default(trialing)
+  stripeCustomerId String?
+  stripePriceId    String?
+  currentPeriodEnd DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@map("subscriptions")
+}

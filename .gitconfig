@@ -1,0 +1,20 @@
+# Configuración del repositorio TableFlow
+# Aplicar localmente con: git config --local include.path .gitconfig
+
+[core]
+  autocrlf = input
+  ignorecase = false
+
+[commit]
+  # No agregar co-autores automáticos
+  gpgsign = false
+
+[push]
+  default = current
+  autoSetupRemote = true
+
+[pull]
+  rebase = false
+
+[branch]
+  autosetuprebase = never

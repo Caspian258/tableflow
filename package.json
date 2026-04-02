@@ -1,0 +1,34 @@
+{
+  "name": "tableflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema POS + KDS + Analytics SaaS para restaurantes",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,waiter,kitchen,admin -c cyan,blue,yellow,green \"pnpm dev:server\" \"pnpm dev:waiter\" \"pnpm dev:kitchen\" \"pnpm dev:admin\"",
+    "dev:server": "pnpm --filter server dev",
+    "dev:waiter": "pnpm --filter waiter dev",
+    "dev:kitchen": "pnpm --filter kitchen dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "db:migrate": "pnpm --filter server db:migrate",
+    "db:seed": "pnpm --filter server db:seed",
+    "db:studio": "pnpm --filter server db:studio",
+    "db:reset": "pnpm --filter server db:reset",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "workspaces": [
+    "apps/*",
+    "server",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}
