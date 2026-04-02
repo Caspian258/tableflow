@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: ✅ FASE 1 COMPLETA — Listo para piloto
+## Fase actual: 🚧 FASE 2 EN PROGRESO — Analytics completo, pendiente pagos y deploy
 
 ---
 
@@ -323,5 +323,58 @@ Se definió la visión completa del proyecto en conversación inicial:
 
 ---
 
-> _Última actualización: Sesión 5 — Fase 1 completa, flujo end-to-end verificado_
+---
+
+### [Sesión 6] — Fase 2: Analytics + Dashboard Admin
+
+**Fecha:** 2026-04-02
+**Fase:** 2 — Analytics
+
+#### Qué se hizo en esta sesión
+
+**Server — 4 endpoints GET /analytics/*:**
+- `GET /analytics/sales?from&to` — summary (totalRevenue, totalOrders, avgTicket) + byDay array con ceros para días sin ventas
+- `GET /analytics/top-items?from&to` — platillos más vendidos (rank, name, quantity, revenue)
+- `GET /analytics/peak-hours?from&to` — órdenes agrupadas por hora del día (array[24])
+- `GET /analytics/prep-times?from&to` — avg/p50/p90 en minutos de (readyAt - createdAt), tamaño de muestra
+- Todos con guard `requireRole('owner', 'manager')`
+- `server/prisma/seed-demo.ts` — seed de 244 órdenes demo distribuidas en 30 días para probar analytics
+
+**apps/admin — completa:**
+- `store/index.ts` — Zustand: auth + date range (from/to) + 5 slices de analytics
+- `lib/api.ts` — fetch wrapper con 401→refresh→retry (igual que waiter)
+- `pages/LoginPage.tsx` — login con check de rol (solo owner/manager)
+- `components/StatCard.tsx` — card reutilizable con icono, valor y subtítulo
+- `components/SalesChart.tsx` — Recharts LineChart: ingresos por día, tooltip con formato de moneda
+- `components/PeakHoursChart.tsx` — Recharts BarChart: horas pico, barras altas con color indigo oscuro
+- `components/TopItemsTable.tsx` — tabla con medallas 🥇🥈🥉 para top 3, rank numérico para el resto
+- `pages/DashboardPage.tsx` — orquesta todo: 4 StatCards, 2 gráficas side-by-side, tabla, date range picker inline en header, botón Actualizar, botón Salir
+
+#### Pruebas realizadas ✅
+
+```
+GET /analytics/sales    → totalRevenue: 110825, totalOrders: 240, avgTicket: 461.77
+GET /analytics/top-items → Guacamole con totopos #1 (169 uds, $14,365)
+GET /analytics/peak-hours → pico a las 12:00–14:00
+GET /analytics/prep-times → avg: 15.3 min, p90: 23.3 min
+```
+
+- Admin app corriendo en http://localhost:5175
+- Login con `owner@elpiloto.com` / `owner1234`
+
+#### Estado Fase 2
+
+- ✅ Analytics backend (4 endpoints)
+- ✅ Dashboard admin completo (charts + tabla + stat cards + date range)
+- ⬜ `POST /orders/:id/pay` — registrar pagos
+- ⬜ Deploy Railway
+
+#### Próximos pasos — Fase 2 (resto)
+
+1. **Pagos** — `POST /orders/:id/pay`: valida orden delivered, crea Payment, cambia status a `paid`, emite evento Socket.io
+2. **Pantalla de cobro** — en apps/waiter: botón "Cobrar" en OrderDetail cuando status=delivered, muestra total, métodos de pago (cash/card/transfer)
+3. **Historial en admin** — tabla de pagos del día con método y monto
+4. **Deploy Railway** — server + apps, variables de entorno en Railway, PostgreSQL en Railway plugin
+
+> _Última actualización: Sesión 6 — Analytics completo, dashboard admin funcionando_
 
