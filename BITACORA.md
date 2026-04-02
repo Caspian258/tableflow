@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 1 — App de meseros completa
+## Fase actual: ✅ FASE 1 COMPLETA — Listo para piloto
 
 ---
 
@@ -263,5 +263,65 @@ Se definió la visión completa del proyecto en conversación inicial:
 
 ---
 
-> _Última actualización: Sesión 4 — App de meseros PWA completa_
+---
+
+### [Sesión 5] — KDS de cocina + prueba end-to-end
+
+**Fecha:** 2026-04-02
+**Fase:** 1 — ✅ COMPLETA
+
+#### Qué se hizo en esta sesión
+
+**Server:**
+- `POST /auth/login/pin` — login por PIN + restaurantSlug para tablet de cocina; respuesta incluye `kitchenAlertSeconds`
+
+**apps/kitchen — completo:**
+- `LoginPage.tsx` — primera vez: ingresa restaurantSlug (guardado en localStorage); luego: teclado PIN 4 dígitos con auto-submit al 4° dígito
+- `PinPad.tsx` — componente de teclado numérico táctil, grande, con dots de progreso
+- `KDSPage.tsx` — dos columnas: Pendientes | En preparación; reloj en tiempo real; carga `GET /orders` al montar
+- `OrderCard.tsx` — tarjeta con timer ⏱ en segundos, alerta roja pulsante si supera `kitchenAlertSeconds`, botón "Iniciar ▶" o "Marcar lista ✓"
+- Socket.io-client conectado al room kitchen, recibe `order:new` y `order:status_changed` en tiempo real
+
+#### Prueba end-to-end ejecutada con curl ✅
+
+| Paso | Actor | Acción | Resultado |
+|------|-------|--------|-----------|
+| 1 | Mesero | Login email/password | JWT + cookie ✓ |
+| 2 | Cocina | Login PIN 9012 + slug `el-piloto` | JWT + kitchenAlertSeconds:600 ✓ |
+| 3 | Mesero | Ver mesas | 4 disponibles ✓ |
+| 4 | Mesero | Crear orden Mesa 3 (2 platillos) | pending, mesa → occupied ✓ |
+| 5 | Cocina | `GET /orders` | Ve 1 orden pending ✓ |
+| 6 | Cocina | `pending → in_progress` | Status actualizado ✓ |
+| 7 | Mesero | Consulta órdenes | Ve in_progress ✓ |
+| 8 | Cocina | `in_progress → ready` | Status actualizado ✓ |
+| 9 | Mesero | `ready → delivered` | Status actualizado ✓ |
+| 10 | Sistema | Auto-check active orders | Mesa 3 → available ✓ |
+| 11 | Mesero | `GET /orders` | 0 activas ✓ |
+
+#### Estado de Fase 1 — Completa
+
+**Backend:**
+- ✅ Autenticación JWT + refresh token + PIN login
+- ✅ Middleware de auth + roles
+- ✅ CRUD de mesas con status
+- ✅ Menú (categorías + platillos)
+- ✅ Órdenes: crear, listar activas, cambiar status con validaciones
+- ✅ Socket.io: rooms por restaurante, eventos tipados
+- ✅ Seed: restaurante El Piloto, 5 mesas, 13 platillos, 5 usuarios
+
+**Apps:**
+- ✅ `apps/waiter` — PWA: login, lista mesas, nueva orden, detalle de orden
+- ✅ `apps/kitchen` — KDS: login por PIN, dos columnas, timer, alertas, botones de avance
+
+#### Próximos pasos — Fase 2
+
+1. **Pagos** — `POST /orders/:id/pay` → crea Payment, cambia orden a `paid`
+2. **App admin** — dashboard: órdenes del día, ventas totales, mesas en uso
+3. **GET /orders/:id** — detalle por ID (para recargas de página)
+4. **Printer bridge** — emitir evento de impresión desde KDS al marcar orden como lista
+5. **Deploy en Railway** — server + apps en producción para el piloto real
+
+---
+
+> _Última actualización: Sesión 5 — Fase 1 completa, flujo end-to-end verificado_
 

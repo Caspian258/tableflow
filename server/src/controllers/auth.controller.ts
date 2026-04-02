@@ -67,6 +67,72 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
   })
 }
 
+const PinLoginSchema = z.object({
+  pin: z.string().length(4).regex(/^\d{4}$/),
+  restaurantSlug: z.string().min(1),
+})
+
+export async function loginWithPin(request: FastifyRequest, reply: FastifyReply) {
+  const result = PinLoginSchema.safeParse(request.body)
+  if (!result.success) {
+    return reply.code(400).send({ error: 'Datos inválidos', details: result.error.flatten() })
+  }
+
+  const { pin, restaurantSlug } = result.data
+
+  const user = await prisma.user.findFirst({
+    where: {
+      pin,
+      isActive: true,
+      restaurant: { slug: restaurantSlug },
+    },
+    include: {
+      restaurant: { select: { kitchenAlertSeconds: true } },
+    },
+  })
+
+  if (!user || !user.restaurant) {
+    return reply.code(401).send({ error: 'PIN incorrecto' })
+  }
+
+  const accessToken = await reply.jwtSign({
+    sub: user.id,
+    restaurantId: user.restaurantId,
+    role: user.role,
+    name: user.name,
+  })
+
+  const rawToken = crypto.randomBytes(64).toString('hex')
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_DAYS)
+
+  await prisma.refreshToken.create({
+    data: { userId: user.id, token: rawToken, expiresAt },
+  })
+
+  reply.setCookie(REFRESH_TOKEN_COOKIE, rawToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/auth',
+    expires: expiresAt,
+  })
+
+  return reply.send({
+    data: {
+      accessToken,
+      kitchenAlertSeconds: user.restaurant.kitchenAlertSeconds,
+      user: {
+        id: user.id,
+        restaurantId: user.restaurantId,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    },
+  })
+}
+
 export async function refresh(request: FastifyRequest, reply: FastifyReply) {
   const rawToken = request.cookies[REFRESH_TOKEN_COOKIE]
   if (!rawToken) {
