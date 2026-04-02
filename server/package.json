@@ -22,12 +22,14 @@
     "@fastify/sensible": "^5.5.0",
     "@prisma/client": "^5.8.1",
     "@tableflow/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "fastify": "^4.26.2",
     "ioredis": "^5.3.2",
     "socket.io": "^4.7.4",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.11.5",
     "prisma": "^5.8.1",
     "tsx": "^4.7.0",

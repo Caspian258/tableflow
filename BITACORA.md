@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 0 — Estructura y configuración inicial
+## Fase actual: 1 — Backend: auth + seed
 
 ---
 
@@ -91,5 +91,57 @@ Se definió la visión completa del proyecto en conversación inicial:
 
 ---
 
-> _Última actualización: Sesión 1 — Estructura inicial completa_
+---
+
+### [Sesión 2] — Backend: Fastify + Auth + Seed
+
+**Fecha:** 2026-04-02
+**Fase:** 1 — Backend base
+
+#### Qué se hizo en esta sesión
+
+- [x] `pnpm-workspace.yaml` — creado (pnpm lo requiere en lugar del campo `workspaces` en package.json)
+- [x] `server/tsconfig.json` — configuración TypeScript para Node.js (`module: NodeNext`)
+- [x] `server/src/lib/prisma.ts` — singleton de PrismaClient
+- [x] `server/src/types/fastify.d.ts` — declaración de tipos para payload JWT (`sub`, `restaurantId`, `role`, `name`)
+- [x] `server/src/middleware/authenticate.ts` — `authenticate` (preHandler JWT) y `requireRole(...roles)` (factory de roles)
+- [x] `server/src/controllers/auth.controller.ts` — lógica de `login`, `refresh`, `logout`
+- [x] `server/src/routes/auth.ts` — rutas `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
+- [x] `server/src/index.ts` — Fastify configurado con cors, jwt, cookie, sensible; rutas de auth registradas
+- [x] `server/prisma/seed.ts` — restaurante "El Piloto", 5 mesas, 4 categorías, 13 platillos, 5 usuarios
+- [x] `server/package.json` — agregado `bcryptjs` y `@types/bcryptjs`
+- [x] `server/.env` — copiado de `.env.example` con valores de desarrollo
+- [x] Dependencias instaladas con `pnpm install`
+- [x] Prisma Client generado (`prisma generate`)
+- [x] Seed ejecutado — BD poblada con datos de prueba
+- [x] Servidor probado: `/health`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout` todos responden correctamente
+
+#### Decisiones técnicas
+
+- Refresh token guardado en cookie HttpOnly `path: /auth` — limita la exposición a solo las rutas de auth
+- `authenticate` y `requireRole` como funciones exportadas (no decoradores de Fastify) — más simple para el MVP
+- Seed idempotente: si ya existe el restaurante con slug `el-piloto`, no hace nada (evita duplicados en `db:reset` accidental)
+- PostgreSQL corre directo en el sistema (no Docker)
+
+#### Credenciales de prueba (BD local)
+
+| Rol     | Email                   | Password     | PIN  |
+|---------|-------------------------|--------------|------|
+| owner   | owner@elpiloto.com      | owner1234    | —    |
+| manager | manager@elpiloto.com    | manager1234  | —    |
+| waiter  | mesero1@elpiloto.com    | waiter1234   | 1234 |
+| waiter  | mesero2@elpiloto.com    | waiter5678   | 5678 |
+| kitchen | cocina@elpiloto.com     | kitchen1234  | 9012 |
+
+#### Próximos pasos (Sesión 3)
+
+1. **Rutas de mesas** — `GET /tables` (lista por restaurante), `PATCH /tables/:id/status`
+2. **Rutas de menú** — `GET /menu` (categorías + platillos activos)
+3. **Rutas de órdenes** — `POST /orders`, `GET /orders`, `PATCH /orders/:id/status`
+4. **Socket.io** — configurar rooms por restaurante, emitir eventos `order:new` y `order:status_changed`
+5. **App de meseros** — pantalla de login, lista de mesas, pantalla de nueva orden
+
+---
+
+> _Última actualización: Sesión 2 — Backend auth + seed completos_
 
