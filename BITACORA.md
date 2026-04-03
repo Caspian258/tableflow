@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚧 FASE 2 EN PROGRESO — Analytics completo, pendiente pagos y deploy
+## Fase actual: 🚧 FASE 3 EN PROGRESO — SaaS billing implementado, pendiente deploy y Stripe keys reales
 
 ---
 
@@ -376,5 +376,65 @@ GET /analytics/prep-times → avg: 15.3 min, p90: 23.3 min
 3. **Historial en admin** — tabla de pagos del día con método y monto
 4. **Deploy Railway** — server + apps, variables de entorno en Railway, PostgreSQL en Railway plugin
 
-> _Última actualización: Sesión 6 — Analytics completo, dashboard admin funcionando_
+---
+
+### [Sesión 7] — Fase 3: SaaS multi-tenant — Registro + Billing con Stripe
+
+**Fecha:** 2026-04-03
+**Fase:** 3 — SaaS Billing
+
+#### Qué se hizo en esta sesión
+
+**Server — nuevos endpoints:**
+- `POST /auth/register` — crea restaurante + usuario owner + subscription(trialing 30 días) en una transacción atómica; retorna login automático con accessToken
+  - Valida unicidad de slug y email antes de la transacción
+  - Trial de 30 días configurado en `currentPeriodEnd`
+- `GET /billing/status` — devuelve plan, status, trialDaysRemaining, currentPeriodEnd (solo owner)
+- `POST /billing/create-checkout` — crea Stripe Checkout Session; crea/reutiliza stripe customer; retorna `url` para redirigir (solo owner)
+- `POST /billing/webhook` — sin auth; verifica firma Stripe con STRIPE_WEBHOOK_SECRET; maneja:
+  - `checkout.session.completed` → activa subscription, guarda stripeCustomerId + priceId
+  - `invoice.paid` → actualiza status=active y currentPeriodEnd (usa `invoice.period_end`)
+  - `invoice.payment_failed` → marca status=past_due
+  - `customer.subscription.deleted` → marca status=cancelled
+- `middleware/checkSubscription.ts` — bloquea con 402 si status=cancelled o past_due
+- `lib/stripe.ts` — singleton lazy (no lanza excepción si STRIPE_SECRET_KEY no está configurada; solo falla cuando se intenta usar)
+- Raw body capturado globalmente con content type parser personalizado (`request.rawBody: Buffer`)
+
+**Stripe API version:** `2026-03-25.dahlia` (v21 del SDK)
+- En esta versión, `Subscription.current_period_end` ya no existe; se usa `Invoice.period_end`
+
+**Admin app — nuevas pantallas:**
+- `/register` — formulario completo; auto-genera slug desde el nombre del restaurante; login automático al crear; link a login
+- `/billing` — planes Basic ($299/mes) vs Pro ($599/mes) con features; botón que inicia Stripe Checkout; muestra plan actual si ya está activo
+- Dashboard — banner amber si status=trialing (días restantes + botón "Ver planes"); banner rojo si past_due; link "Facturación" en header (solo owner)
+- Login — link "Crear cuenta gratis" → /register
+
+#### Configuración pendiente para que Stripe funcione
+
+```env
+STRIPE_SECRET_KEY=sk_live_...       # o sk_test_... para pruebas
+STRIPE_WEBHOOK_SECRET=whsec_...     # del dashboard de Stripe
+STRIPE_BASIC_PRICE_ID=price_...     # ID del precio Basic en Stripe
+STRIPE_PRO_PRICE_ID=price_...       # ID del precio Pro en Stripe
+```
+
+Para probar webhooks localmente: `stripe listen --forward-to localhost:3001/billing/webhook`
+
+#### Pruebas realizadas ✅
+
+```
+POST /auth/register → crea restaurante "El Rincón", owner María, subscription trialing 30 días
+GET /billing/status → { plan: "trial", status: "trialing", trialDaysRemaining: 30 }
+GET /tables (con token del nuevo restaurante) → OK, 0 mesas (trialing no bloquea)
+Slug duplicado → 409 "El slug ya está en uso"
+```
+
+#### Próximos pasos — Fase 3 (resto)
+
+1. **Configurar Stripe** — crear productos/precios en el dashboard de Stripe, llenar .env con las keys
+2. **Prueba de checkout** — hacer un checkout de prueba completo con la CLI de Stripe
+3. **POST /orders/:id/pay** — registrar pagos en efectivo/tarjeta/transferencia
+4. **Deploy Railway** — subir server + apps, configurar variables de entorno en Railway
+
+> _Última actualización: Sesión 7 — Registro + Billing con Stripe completo_
 
