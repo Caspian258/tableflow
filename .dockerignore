@@ -1,0 +1,38 @@
+# Dependencias
+node_modules
+**/node_modules
+
+# Builds de frontend (se compilan por separado en Vercel/Railway static)
+apps/waiter/dist
+apps/kitchen/dist
+apps/admin/dist
+
+# Build del servidor (se genera dentro del Dockerfile)
+server/dist
+
+# Variables de entorno — NUNCA incluir en la imagen
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Editor
+.vscode
+.idea
+
+# Prisma migrations lock (no se necesita en el runner)
+server/prisma/migrations/**/migration_lock.toml
+
+# Seeds (solo para desarrollo)
+server/prisma/seed.ts
+server/prisma/seed-demo.ts
+
+# README y docs
+*.md
