@@ -30,9 +30,10 @@ app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, 
 // ─── Plugins ──────────────────────────────────────────────────────────────────
 
 await app.register(cors, {
-  origin: process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',')
-    : true,
+  origin:
+    process.env.NODE_ENV === 'production'
+      ? (process.env.FRONTEND_URL?.split(',') ?? false)
+      : true,
   credentials: true,
 })
 
