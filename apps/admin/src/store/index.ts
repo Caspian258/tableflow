@@ -35,6 +35,13 @@ export interface PrepTimesData {
   sampleSize: number
 }
 
+export interface BillingStatus {
+  plan: 'trial' | 'basic' | 'pro'
+  status: 'trialing' | 'active' | 'past_due' | 'cancelled'
+  trialDaysRemaining: number | null
+  currentPeriodEnd: string | null
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 function today() {
@@ -59,6 +66,10 @@ interface AdminStore {
   from: string
   to: string
   setDateRange: (from: string, to: string) => void
+
+  // Billing
+  billing: BillingStatus | null
+  setBilling: (b: BillingStatus) => void
 
   // Analytics data
   summary: SalesSummary | null
@@ -86,12 +97,16 @@ export const useAdminStore = create<AdminStore>((set) => ({
     set({
       user: null,
       accessToken: null,
+      billing: null,
       summary: null,
       byDay: [],
       topItems: [],
       peakHours: [],
       prepTimes: null,
     }),
+
+  billing: null,
+  setBilling: (billing) => set({ billing }),
 
   from: daysAgo(30),
   to: today(),

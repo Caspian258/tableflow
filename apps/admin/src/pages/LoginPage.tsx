@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import type { AuthUser } from '@tableflow/shared'
 import { useAdminStore } from '../store/index'
 import { api } from '../lib/api'
@@ -87,6 +87,13 @@ export default function LoginPage() {
         >
           {loading ? 'Ingresando...' : 'Ingresar'}
         </button>
+
+        <p className="text-center text-sm text-gray-500">
+          ¿Nuevo en TableFlow?{' '}
+          <Link to="/register" className="text-indigo-600 font-medium hover:underline">
+            Crear cuenta gratis
+          </Link>
+        </p>
       </form>
     </div>
   )

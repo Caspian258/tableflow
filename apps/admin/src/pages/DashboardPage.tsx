@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAdminStore } from '../store/index'
 import { api } from '../lib/api'
 import type {
@@ -7,6 +8,7 @@ import type {
   TopItem,
   PeakHour,
   PrepTimesData,
+  BillingStatus,
 } from '../store/index'
 import StatCard from '../components/StatCard'
 import SalesChart from '../components/SalesChart'
@@ -18,11 +20,14 @@ function formatCurrency(value: number) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const {
     user,
     from,
     to,
     setDateRange,
+    billing,
+    setBilling,
     summary,
     byDay,
     topItems,
@@ -63,7 +68,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void fetchAll()
-  }, [fetchAll])
+    // Cargar billing status si el usuario es owner
+    if (user?.role === 'owner') {
+      api
+        .get<{ data: BillingStatus }>('/billing/status')
+        .then((res) => setBilling(res.data))
+        .catch(() => {})
+    }
+  }, [fetchAll, setBilling, user?.role])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,6 +115,14 @@ export default function DashboardPage() {
           >
             {loading ? 'Cargando…' : 'Actualizar'}
           </button>
+          {user?.role === 'owner' && (
+            <button
+              onClick={() => navigate('/billing')}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Facturación
+            </button>
+          )}
           <button
             onClick={logout}
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
@@ -113,6 +133,42 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* Trial banner */}
+        {billing?.status === 'trialing' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-amber-800">
+              <span>⏳</span>
+              <span>
+                <strong>Período de prueba:</strong> te quedan{' '}
+                <strong>{billing.trialDaysRemaining} días</strong> gratis.
+              </span>
+            </div>
+            <button
+              onClick={() => navigate('/billing')}
+              className="text-sm bg-amber-600 text-white font-semibold px-4 py-1.5 rounded-lg hover:bg-amber-700 transition-colors"
+            >
+              Ver planes
+            </button>
+          </div>
+        )}
+
+        {billing?.status === 'past_due' && (
+          <div className="bg-red-50 border border-red-300 rounded-xl px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-red-800">
+              <span>⚠️</span>
+              <span>
+                <strong>Pago pendiente.</strong> Actualiza tu método de pago para continuar.
+              </span>
+            </div>
+            <button
+              onClick={() => navigate('/billing')}
+              className="text-sm bg-red-600 text-white font-semibold px-4 py-1.5 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Actualizar
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
             {error}

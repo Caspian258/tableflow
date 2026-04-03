@@ -8,10 +8,23 @@ import { tableRoutes } from './routes/tables.js'
 import { menuRoutes } from './routes/menu.js'
 import { orderRoutes } from './routes/orders.js'
 import { analyticsRoutes } from './routes/analytics.js'
+import { billingRoutes } from './routes/billing.js'
 import { initSocket } from './lib/socket.js'
 
 const app = Fastify({
   logger: process.env.NODE_ENV !== 'test',
+})
+
+// Capturar raw body para verificación de webhooks de Stripe
+app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+  try {
+    ;(req as unknown as { rawBody: Buffer }).rawBody = body as Buffer
+    done(null, JSON.parse((body as Buffer).toString()))
+  } catch (err) {
+    const e = err as Error & { statusCode?: number }
+    e.statusCode = 400
+    done(e, undefined)
+  }
 })
 
 // ─── Plugins ──────────────────────────────────────────────────────────────────
@@ -45,6 +58,7 @@ await app.register(tableRoutes)
 await app.register(menuRoutes)
 await app.register(orderRoutes)
 await app.register(analyticsRoutes)
+await app.register(billingRoutes)
 
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 

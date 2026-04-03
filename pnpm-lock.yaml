@@ -196,6 +196,9 @@ importers:
       socket.io:
         specifier: ^4.7.4
         version: 4.8.3
+      stripe:
+        specifier: ^21.0.1
+        version: 21.0.1(@types/node@20.19.37)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -2954,6 +2957,15 @@ packages:
 
   strip-literal@2.1.1:
     resolution: {integrity: sha512-631UJ6O00eNGfMiWG78ck80dfBab8X6IVFB51jZK5Icd7XAs60Z5y7QdSd/wGIklnWvRbUNloVzhOKKmutxQ6Q==}
+
+  stripe@21.0.1:
+    resolution: {integrity: sha512-ocv0j7dWttswDWV2XL/kb6+yiLpDXNXL3RQAOB5OB2kr49z0cEatdQc12+zP/j5nrXk6rAsT4N3y/NUvBbK7Pw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   sucrase@3.35.1:
     resolution: {integrity: sha512-DhuTmvZWux4H1UOnWMB3sk0sbaCVOoQZjv8u1rDoTV0HTdGem9hkAZtl4JZy8P2z4Bg0nT+YMeOFyVr4zcG5Tw==}
@@ -6281,6 +6293,10 @@ snapshots:
   strip-literal@2.1.1:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@21.0.1(@types/node@20.19.37):
+    optionalDependencies:
+      '@types/node': 20.19.37
 
   sucrase@3.35.1:
     dependencies:
