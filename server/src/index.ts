@@ -32,7 +32,14 @@ app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, 
 await app.register(cors, {
   origin: process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',')
-    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+    : (origin, cb) => {
+        // En desarrollo: permite cualquier origen localhost (puerto variable con Vite)
+        if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+          cb(null, true)
+        } else {
+          cb(new Error('Not allowed by CORS'), false)
+        }
+      },
   credentials: true,
 })
 
