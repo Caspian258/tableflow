@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚧 FASE 3 EN PROGRESO — SaaS billing implementado, pendiente deploy y Stripe keys reales
+## Fase actual: 🚀 LISTO PARA DEPLOY — Railway + Vercel configurados, pendiente ejecutar
 
 ---
 
@@ -437,4 +437,48 @@ Slug duplicado → 409 "El slug ya está en uso"
 4. **Deploy Railway** — subir server + apps, configurar variables de entorno en Railway
 
 > _Última actualización: Sesión 7 — Registro + Billing con Stripe completo_
+
+---
+
+### [Sesión 8] — Configuración de deploy (Railway + Vercel)
+
+**Fecha:** 2026-04-03
+**Fase:** Deploy
+
+#### Qué se hizo en esta sesión
+
+- `Dockerfile` — multi-stage build (deps → builder → runner) con Node 20 Alpine
+  - Stage `deps`: copia solo manifests (package.json), instala todas las dependencias; esta capa se cachea mientras no cambien las dependencias
+  - Stage `builder`: copia fuentes, compila TypeScript → `server/dist/`, genera Prisma Client para linux/x64
+  - Stage `runner`: copia `node_modules` de `deps`, artefactos de `builder` y `.prisma`; usuario sin privilegios; HEALTHCHECK incluido
+- `.dockerignore` — excluye node_modules, builds de apps, .env, seeds, editor configs
+- `railway.toml` — configura builder=DOCKERFILE, healthcheck en `/health` (timeout 60s), restart ON_FAILURE
+- `scripts/start.sh` — script de arranque: corre `prisma migrate deploy` antes de `node server/dist/index.js`
+- `package.json` — agrega script `build:prod` que compila server + waiter + kitchen + admin en secuencia
+- `CONTEXT.md` — sección "Deploy a producción" completa con:
+  - Diagrama de arquitectura (Railway + Vercel)
+  - Pasos 1-10 detallados: crear proyecto Railway, plugins PostgreSQL/Redis, variables de entorno, deploy de las 3 apps en Vercel, configurar Socket.io, webhook de Stripe, seed de producción
+  - Comandos útiles de Railway CLI
+  - Checklist de deploy
+
+#### Verificaciones
+
+- `pnpm build:prod` ejecutado localmente → todos los builds pasan:
+  - `server`: TypeScript compilado a `server/dist/`
+  - `apps/waiter`: Vite build OK
+  - `apps/kitchen`: Vite build OK
+  - `apps/admin`: Vite build OK
+- Socket.io en `apps/waiter` y `apps/kitchen` ya usaba `VITE_API_URL` (no había localhost hardcoded)
+
+#### Pendiente (el desarrollador debe ejecutar)
+
+1. Push a GitHub y crear proyecto en Railway (seguir pasos en CONTEXT.md)
+2. Agregar plugins PostgreSQL y Redis en Railway
+3. Configurar variables de entorno en Railway (ver sección deploy en CONTEXT.md)
+4. Crear 3 proyectos en Vercel (waiter, kitchen, admin) con sus `VITE_API_URL`
+5. Configurar CORS: actualizar `FRONTEND_URL` en Railway con URLs de Vercel
+6. Webhook de Stripe cuando actives billing
+7. Correr `railway run pnpm db:seed` para crear el restaurante piloto
+
+> _Última actualización: Sesión 8 — Deploy configurado, listo para ejecutar_
 
