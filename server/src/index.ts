@@ -9,6 +9,7 @@ import { menuRoutes } from './routes/menu.js'
 import { orderRoutes } from './routes/orders.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { billingRoutes } from './routes/billing.js'
+import { settingsRoutes } from './routes/settings.js'
 import { initSocket } from './lib/socket.js'
 
 const app = Fastify({
@@ -60,6 +61,7 @@ await app.register(menuRoutes)
 await app.register(orderRoutes)
 await app.register(analyticsRoutes)
 await app.register(billingRoutes)
+await app.register(settingsRoutes)
 
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 

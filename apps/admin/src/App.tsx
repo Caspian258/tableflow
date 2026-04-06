@@ -4,6 +4,10 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import BillingPage from './pages/BillingPage'
+import TablesPage from './pages/settings/TablesPage'
+import MenuPage from './pages/settings/MenuPage'
+import StaffPage from './pages/settings/StaffPage'
+import RestaurantPage from './pages/settings/RestaurantPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAdminStore((s) => s.user)
@@ -30,6 +34,39 @@ export default function App() {
           element={
             <RequireAuth>
               <BillingPage />
+            </RequireAuth>
+          }
+        />
+        {/* Settings */}
+        <Route
+          path="/settings/restaurant"
+          element={
+            <RequireAuth>
+              <RestaurantPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/tables"
+          element={
+            <RequireAuth>
+              <TablesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/menu"
+          element={
+            <RequireAuth>
+              <MenuPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/staff"
+          element={
+            <RequireAuth>
+              <StaffPage />
             </RequireAuth>
           }
         />

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminStore } from '../store/index'
 import { api } from '../lib/api'
@@ -14,6 +14,7 @@ import StatCard from '../components/StatCard'
 import SalesChart from '../components/SalesChart'
 import PeakHoursChart from '../components/PeakHoursChart'
 import TopItemsTable from '../components/TopItemsTable'
+import OnboardingWizard, { type OnboardingStatus } from '../components/OnboardingWizard'
 
 function formatCurrency(value: number) {
   return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`
@@ -21,6 +22,7 @@ function formatCurrency(value: number) {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
   const {
     user,
     from,
@@ -75,6 +77,11 @@ export default function DashboardPage() {
         .then((res) => setBilling(res.data))
         .catch(() => {})
     }
+    // Cargar estado de onboarding
+    api
+      .get<{ data: OnboardingStatus }>('/onboarding')
+      .then((res) => setOnboarding(res.data))
+      .catch(() => {})
   }, [fetchAll, setBilling, user?.role])
 
   return (
@@ -114,6 +121,12 @@ export default function DashboardPage() {
             className="bg-indigo-600 text-white text-sm font-medium rounded-xl px-4 py-2 hover:bg-indigo-700 disabled:opacity-60 transition-colors"
           >
             {loading ? 'Cargando…' : 'Actualizar'}
+          </button>
+          <button
+            onClick={() => navigate('/settings/restaurant')}
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Configuración
           </button>
           {user?.role === 'owner' && (
             <button
@@ -167,6 +180,11 @@ export default function DashboardPage() {
               Actualizar
             </button>
           </div>
+        )}
+
+        {/* Onboarding wizard */}
+        {onboarding && !onboarding.isComplete && (
+          <OnboardingWizard status={onboarding} />
         )}
 
         {error && (
