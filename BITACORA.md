@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 LISTO PARA DEPLOY — Railway + Vercel configurados, pendiente ejecutar
+## Fase actual: ⚙️ Fase 3.5 completa — Panel de configuración del restaurante
 
 ---
 
@@ -481,4 +481,60 @@ Slug duplicado → 409 "El slug ya está en uso"
 7. Correr `railway run pnpm db:seed` para crear el restaurante piloto
 
 > _Última actualización: Sesión 8 — Deploy configurado, listo para ejecutar_
+
+---
+
+### [Sesión 9] — Fase 3.5: Panel de configuración del restaurante
+
+**Fecha:** 2026-04-05
+**Fase:** 3.5 — Configuración admin
+
+#### Qué se hizo en esta sesión
+
+**Backend — nuevos endpoints:**
+- `GET /restaurant` — datos del restaurante (nombre, slug, teléfono, dirección, kitchenAlertSeconds)
+- `PATCH /restaurant` — editar datos del restaurante; valida unicidad de slug
+- `POST /tables` — crear mesa con número, nombre opcional y capacidad; valida número único
+- `PATCH /tables/:id` — editar mesa (número, nombre, capacidad)
+- `DELETE /tables/:id` — eliminar mesa; bloquea si tiene órdenes activas
+- `GET /menu/categories` — lista todas las categorías con sus platillos (incluye inactivos, para edición)
+- `POST /menu/categories` + `PATCH /menu/categories/:id` + `DELETE /menu/categories/:id`
+- `POST /menu/items` + `PATCH /menu/items/:id` + `DELETE /menu/items/:id`
+- `GET /staff` — lista usuarios del restaurante con rol, PIN y estado
+- `POST /staff` — crear usuario (nombre, email, password, rol, PIN opcional)
+- `PATCH /staff/:id/toggle-active` — activar/desactivar usuario
+- `PATCH /staff/:id/reset-pin` — cambiar PIN de 4 dígitos
+- `GET /onboarding` — devuelve `{ hasTables, hasMenu, hasStaff, isComplete }`
+
+Todos los endpoints de settings requieren rol `owner` o `manager`.
+
+**Admin app — nuevas páginas bajo `/settings`:**
+- `SettingsLayout.tsx` — layout compartido con sidebar de navegación (Restaurante, Mesas, Menú, Personal)
+- `/settings/restaurant` — formulario para editar nombre, slug, teléfono, dirección y kitchenAlertSeconds; auto-slugify del nombre
+- `/settings/tables` — grid de mesas; modal crear/editar; eliminar con confirmación; indica estado de cada mesa
+- `/settings/menu` — lista de categorías colapsables con sus platillos en tabla; modales para crear/editar categoría y platillo; toggle de disponibilidad inline
+- `/settings/staff` — tabla de personal con roles coloreados; modales para crear usuario y resetear PIN; toggle activar/desactivar
+- `OnboardingWizard.tsx` — checklist de 3 pasos que aparece en el dashboard mientras el restaurante no tenga mesas, menú y personal
+
+**Cambios en dashboard:**
+- Link "Configuración" en el header
+- Wizard de onboarding integrado en el main (desaparece al completar los 3 pasos)
+- `api.ts` actualizado con métodos `patch` y `delete`
+
+#### Estado de Fase 3.5 — Completa
+
+- ✅ CRUD mesas (con validación de órdenes activas al eliminar)
+- ✅ CRUD categorías y platillos (toggle disponibilidad inline)
+- ✅ CRUD personal (crear, toggle activo, reset PIN)
+- ✅ Editar datos del restaurante
+- ✅ Wizard de onboarding en el dashboard
+
+#### Próximos pasos
+
+1. **POST /orders/:id/pay** — registrar pago (efectivo/tarjeta/transferencia)
+2. **Pantalla de cobro en waiter** — botón "Cobrar" cuando orden está delivered
+3. **Deploy Railway** — ejecutar el deploy real (instrucciones en CONTEXT.md)
+4. **Stripe** — configurar productos y precios, activar billing
+
+> _Última actualización: Sesión 9 — Panel de configuración completo_
 
