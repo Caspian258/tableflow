@@ -44,6 +44,19 @@ export function connectSocket(token: string): Socket {
         store.removeOrder(event.orderId)
         break
 
+      case 'order:updated':
+        store.upsertOrder(event.order)
+        break
+
+      case 'order:item_cancelled':
+        store.removeOrderItem(event.orderId, event.itemId)
+        break
+
+      case 'order:paid':
+        store.removeOrder(event.orderId)
+        store.updateTableStatus(event.tableId, 'available')
+        break
+
       case 'table:status_changed':
         store.updateTableStatus(event.tableId, event.status)
         break

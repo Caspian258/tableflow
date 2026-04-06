@@ -100,4 +100,7 @@ export type SocketEvent =
   | { type: 'order:new'; order: OrderDTO }
   | { type: 'order:status_changed'; orderId: string; status: OrderStatus }
   | { type: 'order:cancelled'; orderId: string }
+  | { type: 'order:updated'; order: OrderDTO }
+  | { type: 'order:item_cancelled'; orderId: string; itemId: string }
+  | { type: 'order:paid'; orderId: string; tableId: string }
   | { type: 'table:status_changed'; tableId: string; status: TableStatus }

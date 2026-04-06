@@ -30,14 +30,16 @@ export default function OrderDetailPage() {
   const tables = useAppStore((s) => s.tables)
   const updateOrderStatus = useAppStore((s) => s.updateOrderStatus)
   const updateTableStatus = useAppStore((s) => s.updateTableStatus)
+  const upsertOrder = useAppStore((s) => s.upsertOrder)
+  const removeOrderItem = useAppStore((s) => s.removeOrderItem)
 
   const [actionLoading, setActionLoading] = useState(false)
+  const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const order: OrderDTO | undefined = orders.find((o) => o.id === orderId)
   const table = tables.find((t) => t.id === order?.tableId)
 
-  // Si la orden no está en el store (p.ej. recarga), redirigir a mesas
   useEffect(() => {
     if (!orderId) return
     if (orders.length > 0 && !order) {
@@ -63,6 +65,24 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function handleCancelItem(itemId: string, itemName: string) {
+    if (!orderId) return
+    if (!confirm(`¿Cancelar "${itemName}"?`)) return
+
+    setCancellingItemId(itemId)
+    setError('')
+    try {
+      const res = await api.patch<{ data: OrderDTO }>(`/orders/${orderId}/items`, {
+        cancelItemId: itemId,
+      })
+      upsertOrder(res.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cancelar el item')
+    } finally {
+      setCancellingItemId(null)
+    }
+  }
+
   if (!order) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-400">
@@ -71,7 +91,9 @@ export default function OrderDetailPage() {
     )
   }
 
-  const isTerminal = ['delivered', 'paid', 'cancelled'].includes(order.status)
+  const isTerminal = ['paid', 'cancelled'].includes(order.status)
+  const canModifyItems = ['pending', 'in_progress'].includes(order.status)
+  const canCheckout = !['paid', 'cancelled'].includes(order.status)
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -81,17 +103,25 @@ export default function OrderDetailPage() {
           <button onClick={() => navigate('/tables')} className="text-2xl active:opacity-70">
             ←
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold">
               Mesa {order.tableNumber}
               {table?.name ? ` — ${table.name}` : ''}
             </h1>
-            <p className="text-green-100 text-sm">Mesero: {order.waiterName}</p>
+            <p className="text-green-100 text-sm">{order.waiterName}</p>
           </div>
+          {canModifyItems && (
+            <button
+              onClick={() => navigate(`/orders/${orderId}/add`)}
+              className="bg-white/20 text-white text-sm font-semibold rounded-xl px-3 py-2 active:bg-white/30"
+            >
+              ➕ Agregar
+            </button>
+          )}
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-36 p-4 space-y-4">
+      <main className="flex-1 overflow-y-auto pb-48 p-4 space-y-4">
         {/* Status badge */}
         <div
           className={`border rounded-2xl px-4 py-3 text-center font-semibold text-lg ${
@@ -114,33 +144,42 @@ export default function OrderDetailPage() {
           </div>
           <div className="divide-y divide-gray-50">
             {order.items.map((item) => (
-              <div key={item.id} className="px-4 py-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
+              <div key={item.id} className="px-4 py-3 flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
                     <p className="font-medium text-gray-900">
                       {item.quantity}× {item.menuItemName}
                     </p>
-                    {item.notes && (
-                      <p className="text-sm text-gray-500 mt-0.5">📝 {item.notes}</p>
-                    )}
+                    <p className="font-semibold text-gray-700 ml-3">
+                      ${(item.unitPrice * item.quantity).toFixed(2)}
+                    </p>
                   </div>
-                  <p className="font-semibold text-gray-700 ml-3">
-                    ${(item.unitPrice * item.quantity).toFixed(2)}
-                  </p>
+                  {item.notes && (
+                    <p className="text-sm text-gray-500 mt-0.5">📝 {item.notes}</p>
+                  )}
                 </div>
+                {canModifyItems && (
+                  <button
+                    onClick={() => void handleCancelItem(item.id, item.menuItemName)}
+                    disabled={cancellingItemId === item.id}
+                    className="ml-1 text-red-400 text-xs font-medium px-2 py-1 rounded-lg hover:bg-red-50 active:bg-red-100 disabled:opacity-40 flex-shrink-0"
+                  >
+                    {cancellingItemId === item.id ? '…' : '✕'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
           <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex justify-between font-bold text-lg">
-            <span>Total</span>
+            <span>Subtotal</span>
             <span>${order.total.toFixed(2)}</span>
           </div>
         </div>
 
-        {/* Notas generales */}
+        {/* Notas */}
         {order.notes && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3">
-            <p className="text-sm font-medium text-yellow-800">Nota de la mesa:</p>
+            <p className="text-sm font-medium text-yellow-800">Nota:</p>
             <p className="text-yellow-900 mt-1">{order.notes}</p>
           </div>
         )}
@@ -156,29 +195,36 @@ export default function OrderDetailPage() {
 
       {/* Acciones */}
       {!isTerminal && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-bottom space-y-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-bottom space-y-2">
           {order.status === 'ready' && (
             <button
-              onClick={() => handleStatusChange('delivered')}
+              onClick={() => void handleStatusChange('delivered')}
               disabled={actionLoading}
-              className="w-full bg-green-600 text-white font-bold rounded-2xl py-5 text-xl active:bg-green-700 disabled:opacity-60"
+              className="w-full bg-green-600 text-white font-bold rounded-2xl py-4 text-xl active:bg-green-700 disabled:opacity-60"
             >
               {actionLoading ? 'Procesando...' : '✓ Marcar como entregada'}
             </button>
           )}
 
-          {order.status !== 'ready' && (
-            <div className="text-center text-sm text-gray-400">
-              {STATUS_LABEL[order.status]}
-            </div>
+          {canCheckout && (
+            <button
+              onClick={() => navigate(`/orders/${orderId}/checkout`)}
+              className="w-full bg-indigo-600 text-white font-bold rounded-2xl py-4 text-lg active:bg-indigo-700"
+            >
+              💳 Cerrar cuenta — ${order.total.toFixed(2)}
+            </button>
+          )}
+
+          {order.status !== 'ready' && order.status !== 'delivered' && (
+            <p className="text-center text-sm text-gray-400">{STATUS_LABEL[order.status]}</p>
           )}
 
           <button
-            onClick={() => handleStatusChange('cancelled')}
+            onClick={() => void handleStatusChange('cancelled')}
             disabled={actionLoading}
-            className="w-full bg-red-50 text-red-600 font-semibold rounded-2xl py-3 border border-red-200 active:bg-red-100 disabled:opacity-60"
+            className="w-full bg-red-50 text-red-600 font-semibold rounded-2xl py-3 border border-red-200 active:bg-red-100 disabled:opacity-60 text-sm"
           >
-            Cancelar orden
+            Cancelar orden completa
           </button>
         </div>
       )}

@@ -4,6 +4,8 @@ import type { OrderDTO, OrderStatus } from '@tableflow/shared'
 interface Props {
   order: OrderDTO
   kitchenAlertSeconds: number
+  newItemIds: Set<string>
+  cancelledItemIds: Set<string>
   onAction: (orderId: string, status: OrderStatus) => void
   loading: boolean
 }
@@ -30,7 +32,14 @@ function formatTime(secs: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export default function OrderCard({ order, kitchenAlertSeconds, onAction, loading }: Props) {
+export default function OrderCard({
+  order,
+  kitchenAlertSeconds,
+  newItemIds,
+  cancelledItemIds,
+  onAction,
+  loading,
+}: Props) {
   const elapsed = useElapsed(order.createdAt)
   const isLate = elapsed > kitchenAlertSeconds
   const isPending = order.status === 'pending'
@@ -56,6 +65,11 @@ export default function OrderCard({ order, kitchenAlertSeconds, onAction, loadin
                 ⚠ Tarde
               </span>
             )}
+            {newItemIds.size > 0 && (
+              <span className="bg-amber-400 text-slate-900 text-xs font-bold px-2 py-0.5 rounded-full animate-bounce">
+                +{newItemIds.size} nuevo{newItemIds.size !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <p className="text-slate-400 text-sm">{order.waiterName}</p>
         </div>
@@ -72,16 +86,40 @@ export default function OrderCard({ order, kitchenAlertSeconds, onAction, loadin
 
       {/* Items */}
       <ul className="space-y-1.5">
-        {order.items.map((item) => (
-          <li key={item.id} className="text-sm">
-            <span className="font-bold text-white">
-              {item.quantity}× {item.menuItemName}
-            </span>
-            {item.notes && (
-              <span className="text-yellow-300 ml-1">— {item.notes}</span>
-            )}
-          </li>
-        ))}
+        {order.items.map((item) => {
+          const isNew = newItemIds.has(item.id)
+          const isCancelled = cancelledItemIds.has(item.id)
+
+          return (
+            <li
+              key={item.id}
+              className={`text-sm transition-all ${
+                isCancelled
+                  ? 'opacity-40'
+                  : isNew
+                  ? 'bg-amber-400/20 rounded-lg px-2 py-0.5 -mx-2'
+                  : ''
+              }`}
+            >
+              <span
+                className={`font-bold ${
+                  isCancelled
+                    ? 'line-through text-slate-500'
+                    : isNew
+                    ? 'text-amber-300'
+                    : 'text-white'
+                }`}
+              >
+                {item.quantity}× {item.menuItemName}
+                {isCancelled && ' (cancelado)'}
+                {isNew && ' ✦'}
+              </span>
+              {item.notes && !isCancelled && (
+                <span className="text-yellow-300 ml-1">— {item.notes}</span>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       {/* Notas generales */}
@@ -93,9 +131,7 @@ export default function OrderCard({ order, kitchenAlertSeconds, onAction, loadin
 
       {/* Acción */}
       <button
-        onClick={() =>
-          onAction(order.id, isPending ? 'in_progress' : 'ready')
-        }
+        onClick={() => onAction(order.id, isPending ? 'in_progress' : 'ready')}
         disabled={loading}
         className={`
           w-full py-3 rounded-xl text-base font-bold uppercase tracking-wide

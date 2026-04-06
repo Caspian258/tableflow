@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage'
 import TablesPage from './pages/TablesPage'
 import NewOrderPage from './pages/NewOrderPage'
 import OrderDetailPage from './pages/OrderDetailPage'
+import AddItemsPage from './pages/AddItemsPage'
+import CheckoutPage from './pages/CheckoutPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAppStore((s) => s.user)
@@ -37,6 +39,22 @@ export default function App() {
           element={
             <RequireAuth>
               <OrderDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orders/:orderId/add"
+          element={
+            <RequireAuth>
+              <AddItemsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orders/:orderId/checkout"
+          element={
+            <RequireAuth>
+              <CheckoutPage />
             </RequireAuth>
           }
         />

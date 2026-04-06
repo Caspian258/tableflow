@@ -6,6 +6,25 @@ import { getIO } from '../lib/socket.js'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
+const UpdateOrderItemsSchema = z.object({
+  add: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1),
+        quantity: z.number().int().min(1),
+        notes: z.string().optional(),
+      }),
+    )
+    .optional(),
+  cancelItemId: z.string().optional(),
+})
+
+const CreatePaymentSchema = z.object({
+  method: z.enum(['cash', 'card', 'transfer']),
+  tip: z.number().min(0).default(0),
+  splitCount: z.number().int().min(1).optional(),
+})
+
 const CreateOrderSchema = z.object({
   tableId: z.string().min(1),
   items: z
@@ -288,4 +307,164 @@ export async function updateOrderStatus(request: FastifyRequest, reply: FastifyR
   }
 
   return reply.send({ data: { id: updated.id, status: updated.status } })
+}
+
+// ─── Agregar / cancelar items de una orden activa ────────────────────────────
+
+export async function updateOrderItems(request: FastifyRequest, reply: FastifyReply) {
+  const { restaurantId } = request.user
+  if (!restaurantId) return reply.code(403).send({ error: 'Acceso denegado' })
+
+  const { id } = request.params as { id: string }
+
+  const result = UpdateOrderItemsSchema.safeParse(request.body)
+  if (!result.success) {
+    return reply.code(400).send({ error: 'Datos inválidos', details: result.error.flatten() })
+  }
+
+  const order = await prisma.order.findFirst({ where: { id, restaurantId } })
+  if (!order) return reply.code(404).send({ error: 'Orden no encontrada' })
+
+  if (!['pending', 'in_progress'].includes(order.status)) {
+    return reply.code(400).send({
+      error: `No se pueden modificar items en status "${order.status}"`,
+    })
+  }
+
+  const { add, cancelItemId } = result.data
+
+  if (cancelItemId) {
+    // Cancelar un item: verificar que pertenece a la orden
+    const item = await prisma.orderItem.findFirst({ where: { id: cancelItemId, orderId: id } })
+    if (!item) return reply.code(404).send({ error: 'Item no encontrado en la orden' })
+
+    await prisma.orderItem.delete({ where: { id: cancelItemId } })
+
+    try {
+      getIO()
+        .to(`restaurant:${restaurantId}:kitchen`)
+        .emit('event', { type: 'order:item_cancelled', orderId: id, itemId: cancelItemId })
+    } catch { /* sin socket en tests */ }
+
+    const updated = await fetchOrderWithDetails(id)
+    return reply.send({ data: toOrderDTO(updated) })
+  }
+
+  if (add && add.length > 0) {
+    // Verificar y capturar precios de los nuevos items
+    const menuItemIds = [...new Set(add.map((i) => i.menuItemId))]
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, restaurantId, isActive: true },
+      select: { id: true, name: true, price: true, isAvailable: true },
+    })
+
+    if (menuItems.length !== menuItemIds.length) {
+      return reply.code(400).send({ error: 'Uno o más platillos no existen o no están activos' })
+    }
+
+    const priceMap = new Map(menuItems.map((m) => [m.id, m.price]))
+
+    await prisma.orderItem.createMany({
+      data: add.map((item) => ({
+        orderId: id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        unitPrice: priceMap.get(item.menuItemId)!,
+        notes: item.notes,
+      })),
+    })
+
+    const updatedOrder = toOrderDTO(await fetchOrderWithDetails(id))
+
+    try {
+      getIO()
+        .to(`restaurant:${restaurantId}:kitchen`)
+        .emit('event', { type: 'order:updated', order: updatedOrder })
+    } catch { /* sin socket en tests */ }
+
+    return reply.send({ data: updatedOrder })
+  }
+
+  return reply.code(400).send({ error: 'Debes enviar "add" o "cancelItemId"' })
+}
+
+// ─── Registrar pago y cerrar cuenta ──────────────────────────────────────────
+
+export async function createPayment(request: FastifyRequest, reply: FastifyReply) {
+  const { restaurantId } = request.user
+  if (!restaurantId) return reply.code(403).send({ error: 'Acceso denegado' })
+
+  const { id } = request.params as { id: string }
+
+  const result = CreatePaymentSchema.safeParse(request.body)
+  if (!result.success) {
+    return reply.code(400).send({ error: 'Datos inválidos', details: result.error.flatten() })
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { id, restaurantId },
+    include: { items: true },
+  })
+  if (!order) return reply.code(404).send({ error: 'Orden no encontrada' })
+
+  if (['paid', 'cancelled'].includes(order.status)) {
+    return reply.code(400).send({ error: `La orden ya está en status "${order.status}"` })
+  }
+
+  // Calcular total desde items (fuente de verdad)
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + item.unitPrice.toNumber() * item.quantity,
+    0,
+  )
+  const total = subtotal + result.data.tip
+
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id },
+      data: { status: 'paid' },
+    })
+
+    await tx.payment.create({
+      data: {
+        restaurantId,
+        orderId: id,
+        total,
+        tip: result.data.tip,
+        method: result.data.method,
+      },
+    })
+
+    // Liberar mesa si no quedan más órdenes activas
+    const activeOrders = await tx.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: id },
+        status: { in: ['pending', 'in_progress', 'ready', 'delivered'] },
+      },
+    })
+    if (activeOrders === 0) {
+      await tx.table.update({
+        where: { id: order.tableId },
+        data: { status: 'available' },
+      })
+    }
+  })
+
+  try {
+    const io = getIO()
+    const rooms = [`restaurant:${restaurantId}:kitchen`, `restaurant:${restaurantId}:floor`]
+    rooms.forEach((room) =>
+      io.to(room).emit('event', { type: 'order:paid', orderId: id, tableId: order.tableId }),
+    )
+  } catch { /* sin socket en tests */ }
+
+  return reply.code(201).send({
+    data: {
+      orderId: id,
+      total,
+      subtotal,
+      tip: result.data.tip,
+      method: result.data.method,
+    },
+  })
 }

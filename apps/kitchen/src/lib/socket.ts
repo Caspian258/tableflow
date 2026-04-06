@@ -40,6 +40,21 @@ export function connectSocket(token: string): Socket {
       case 'order:cancelled':
         store.removeOrder(event.orderId)
         break
+
+      case 'order:updated':
+        // Actualizar la orden y marcar los items nuevos para highlight
+        if (event.order.status === 'pending' || event.order.status === 'in_progress') {
+          store.upsertOrderWithNewItems(event.order)
+        }
+        break
+
+      case 'order:item_cancelled':
+        store.markItemCancelled(event.orderId, event.itemId)
+        break
+
+      case 'order:paid':
+        store.removeOrder(event.orderId)
+        break
     }
   })
 

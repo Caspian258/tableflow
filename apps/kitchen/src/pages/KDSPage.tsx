@@ -25,6 +25,7 @@ function Clock() {
 export default function KDSPage({ onLogout }: Props) {
   const user = useKitchenStore((s) => s.user)
   const orders = useKitchenStore((s) => s.orders)
+  const orderMeta = useKitchenStore((s) => s.orderMeta)
   const kitchenAlertSeconds = useKitchenStore((s) => s.kitchenAlertSeconds)
   const setOrders = useKitchenStore((s) => s.setOrders)
   const updateOrderStatus = useKitchenStore((s) => s.updateOrderStatus)
@@ -121,6 +122,8 @@ export default function KDSPage({ onLogout }: Props) {
                 key={order.id}
                 order={order}
                 kitchenAlertSeconds={kitchenAlertSeconds}
+                newItemIds={orderMeta[order.id]?.newItemIds ?? new Set()}
+                cancelledItemIds={orderMeta[order.id]?.cancelledItemIds ?? new Set()}
                 onAction={handleAction}
                 loading={loadingOrderId === order.id}
               />
@@ -150,6 +153,8 @@ export default function KDSPage({ onLogout }: Props) {
                 key={order.id}
                 order={order}
                 kitchenAlertSeconds={kitchenAlertSeconds}
+                newItemIds={orderMeta[order.id]?.newItemIds ?? new Set()}
+                cancelledItemIds={orderMeta[order.id]?.cancelledItemIds ?? new Set()}
                 onAction={handleAction}
                 loading={loadingOrderId === order.id}
               />

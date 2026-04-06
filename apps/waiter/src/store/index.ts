@@ -42,6 +42,7 @@ interface AppStore {
   setOrders: (orders: OrderDTO[]) => void
   upsertOrder: (order: OrderDTO) => void
   updateOrderStatus: (orderId: string, status: OrderStatus) => void
+  removeOrderItem: (orderId: string, itemId: string) => void
   removeOrder: (orderId: string) => void
 
   // Cart (borrador de nueva orden)
@@ -93,6 +94,14 @@ export const useAppStore = create<AppStore>((set) => ({
   updateOrderStatus: (orderId, status) =>
     set((s) => ({
       orders: s.orders.map((o) => (o.id === orderId ? { ...o, status } : o)),
+    })),
+  removeOrderItem: (orderId, itemId) =>
+    set((s) => ({
+      orders: s.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, items: o.items.filter((i) => i.id !== itemId) }
+          : o,
+      ),
     })),
   removeOrder: (orderId) =>
     set((s) => ({ orders: s.orders.filter((o) => o.id !== orderId) })),
