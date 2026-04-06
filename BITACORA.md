@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: ⚙️ Fase 3.5 completa — Panel de configuración del restaurante
+## Fase actual: 💳 Fase 3.6 completa — Flujo completo de orden y cierre de cuenta
 
 ---
 
@@ -537,4 +537,45 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 4. **Stripe** — configurar productos y precios, activar billing
 
 > _Última actualización: Sesión 9 — Panel de configuración completo_
+
+---
+
+### [Sesión 10] — Fase 3.6: Flujo completo de orden y cierre de cuenta
+
+**Fecha:** 2026-04-05
+**Fase:** 3.6 — Ciclo completo de orden
+
+#### Qué se hizo en esta sesión
+
+**Shared — nuevos SocketEvents:**
+- `order:updated` — orden actualizada con nuevos items (para KDS)
+- `order:item_cancelled` — item individual cancelado (para KDS)
+- `order:paid` — orden pagada (para floor y kitchen)
+
+**Backend — 2 endpoints nuevos:**
+- `PATCH /orders/:id/items` — agregar items (`add: [...]`) o cancelar un item (`cancelItemId`); solo en status pending/in_progress; emite eventos al KDS
+- `POST /orders/:id/payment` — registrar pago: calcula total desde items, crea Payment, cambia orden a `paid`, libera mesa, emite `order:paid`
+
+**Waiter app:**
+- `OrderDetailPage` rediseñado: botón ➕ Agregar (header, solo en pending/in_progress), botón ✕ por item para cancelarlo individualmente, botón 💳 Cerrar cuenta visible en estados no terminales
+- `AddItemsPage` — misma UI de selección de menú, llama `PATCH /orders/:id/items` al confirmar
+- `CheckoutPage` — resumen de items, selector de propina (0/10/15/20% + monto custom), selector de método de pago (efectivo/tarjeta/transferencia), total prominente; al confirmar muestra el ticket inline
+- Ticket post-pago: lista de items, subtotal, propina, total, método, botón imprimir (`window.print()`) y botón "Nueva orden"
+- `store/index.ts` — nuevo action `removeOrderItem` para cancelación local
+- `lib/socket.ts` — maneja `order:updated`, `order:item_cancelled`, `order:paid`
+- `App.tsx` — rutas `/orders/:id/add` y `/orders/:id/checkout`
+
+**Kitchen app:**
+- `store/index.ts` — `upsertOrderWithNewItems` (detecta nuevos item IDs, auto-limpia highlight a los 10s), `markItemCancelled`, `clearNewItems`
+- `lib/socket.ts` — maneja `order:updated`, `order:item_cancelled`, `order:paid`
+- `OrderCard` — badge amarillo pulsante "N nuevos" cuando llegan items adicionales, items cancelados tachados y en gris con texto "(cancelado)"
+- `KDSPage` — pasa `orderMeta` a cada `OrderCard`
+
+#### Próximos pasos
+
+1. **Deploy Railway** — ejecutar el deploy real (instrucciones completas en CONTEXT.md)
+2. **Stripe** — crear productos/precios, activar billing para restaurantes de paga
+3. **Prueba piloto real** — correr el sistema en el restaurante piloto
+
+> _Última actualización: Sesión 10 — Flujo completo de orden y cierre de cuenta_
 
