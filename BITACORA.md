@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 Deploy completado — Sistema en producción
+## Fase actual: 🚀 En producción — Historial de tickets completado
 
 ---
 
@@ -692,4 +692,39 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 4. **Monitoreo** — revisar logs en Railway durante las primeras sesiones de uso
 
 > _Última actualización: Sesión 12 — Deploy a producción completado_
+
+---
+
+### [Sesión 13] — Historial de tickets en admin
+
+**Fecha:** 2026-04-11
+**Fase:** Post-deploy — funcionalidad operativa
+
+#### Qué se hizo en esta sesión
+
+**Backend:**
+- `GET /orders/history?from&to&page&limit` — nuevo endpoint en `orders.ts`
+  - Solo accesible para `owner` y `manager`
+  - Consulta desde el modelo `Payment` (join con Order, Table, User, OrderItems)
+  - Paginación: `page` + `limit` (máx 100), devuelve `meta` con total y totalPages
+  - Rango de fechas filtra por `paidAt`; default últimos 30 días
+  - Response incluye: tableNumber, waiterName, itemCount, items detallados, subtotal, tip, total, method, paidAt
+
+**Admin app:**
+- `HistorialPage.tsx` — nueva página completa:
+  - Filtros de fecha: presets (Hoy, 7 días, 30 días) + rango personalizado con inputs de fecha
+  - Tabla paginada: Fecha/hora, Mesa, Mesero, Total, Método de pago
+  - Contador de resultados y total del período en la página visible
+  - Clic en fila → modal `TicketModal` con detalle completo: items, subtotal, propina, total, método, mesero
+  - Paginación con botones Anterior / Siguiente
+- `App.tsx` — ruta `/historial` registrada y protegida con `RequireAuth`
+- `DashboardPage.tsx` — link "Historial" agregado en el header
+
+#### Próximos pasos
+
+1. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+2. **Stripe** — crear productos/precios, activar billing
+3. **Tipos explícitos** — reemplazar `noImplicitAny: false` con tipos correctos en controllers
+
+> _Última actualización: Sesión 13 — Historial de tickets en admin_
 

@@ -468,3 +468,75 @@ export async function createPayment(request: FastifyRequest, reply: FastifyReply
     },
   })
 }
+
+// ─── Historial de órdenes pagadas ─────────────────────────────────────────────
+
+export async function listPaidOrders(request: FastifyRequest, reply: FastifyReply) {
+  const { restaurantId } = request.user
+  if (!restaurantId) return reply.code(403).send({ error: 'Acceso denegado' })
+
+  const query = request.query as Record<string, string>
+
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(now.getDate() - 30)
+
+  const from = query.from ? new Date(query.from) : thirtyDaysAgo
+  const to = query.to ? new Date(query.to) : new Date()
+  to.setHours(23, 59, 59, 999)
+
+  const page = Math.max(1, parseInt(query.page ?? '1'))
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20')))
+
+  const where = { restaurantId, paidAt: { gte: from, lte: to } }
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      include: {
+        order: {
+          include: {
+            table:  { select: { number: true } },
+            waiter: { select: { name: true } },
+            items: {
+              select: {
+                quantity: true,
+                unitPrice: true,
+                notes: true,
+                menuItem: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { paidAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.payment.count({ where }),
+  ])
+
+  const data = payments.map((p) => ({
+    id: p.order.id,
+    paymentId: p.id,
+    tableNumber: p.order.table.number,
+    waiterName: p.order.waiter.name,
+    itemCount: p.order.items.reduce((sum, i) => sum + i.quantity, 0),
+    items: p.order.items.map((i) => ({
+      name: i.menuItem.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice.toNumber(),
+      notes: i.notes ?? undefined,
+    })),
+    subtotal: p.total.toNumber() - p.tip.toNumber(),
+    tip: p.tip.toNumber(),
+    total: p.total.toNumber(),
+    method: p.method as 'cash' | 'card' | 'transfer',
+    paidAt: p.paidAt.toISOString(),
+  }))
+
+  return reply.send({
+    data,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  })
+}

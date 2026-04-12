@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import BillingPage from './pages/BillingPage'
+import HistorialPage from './pages/HistorialPage'
 import TablesPage from './pages/settings/TablesPage'
 import MenuPage from './pages/settings/MenuPage'
 import StaffPage from './pages/settings/StaffPage'
@@ -34,6 +35,14 @@ export default function App() {
           element={
             <RequireAuth>
               <BillingPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/historial"
+          element={
+            <RequireAuth>
+              <HistorialPage />
             </RequireAuth>
           }
         />

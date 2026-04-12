@@ -123,6 +123,12 @@ export default function DashboardPage() {
             {loading ? 'Cargando…' : 'Actualizar'}
           </button>
           <button
+            onClick={() => navigate('/historial')}
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Historial
+          </button>
+          <button
             onClick={() => navigate('/settings/restaurant')}
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
           >
