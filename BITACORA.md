@@ -573,9 +573,70 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 
 #### Próximos pasos
 
-1. **Deploy Railway** — ejecutar el deploy real (instrucciones completas en CONTEXT.md)
+1. **Deploy Railway** — ejecutar el deploy real (instrucciones completas en DEPLOY.md)
 2. **Stripe** — crear productos/precios, activar billing para restaurantes de paga
 3. **Prueba piloto real** — correr el sistema en el restaurante piloto
 
 > _Última actualización: Sesión 10 — Flujo completo de orden y cierre de cuenta_
+
+---
+
+### [Sesión 11] — Preparación para deploy + rate limiting + auditoría de seguridad
+
+**Fecha:** 2026-04-11
+**Fase:** Deploy prep
+
+#### Qué se hizo en esta sesión
+
+**Archivos de deploy verificados (ya existían desde Sesión 8):**
+- `Dockerfile` — multi-stage Node 20 Alpine, ya correcto
+- `railway.toml` — apunta al Dockerfile, healthcheck en `/health`, restart ON_FAILURE
+- `scripts/start.sh` — corre `prisma migrate deploy` y luego inicia el servidor
+
+**Nuevo archivo creado:**
+- `DEPLOY.md` — guía paso a paso completa para Railway + Vercel:
+  - Orden correcto de ejecución (Railway primero, Vercel después)
+  - Instrucciones para crear proyecto en Railway, agregar plugins PostgreSQL y Redis
+  - Lista completa de variables de entorno con descripción
+  - Configuración por app en Vercel (root directory, variables)
+  - Instrucciones para migraciones/seed en producción (Railway CLI)
+  - Checklist final de verificación
+  - Configuración de webhook de Stripe
+
+**Rate limiting implementado:**
+- Instalado `@fastify/rate-limit@^10.3.0`
+- Aplicado como plugin encapsulado en `server/src/routes/auth.ts`
+- Límite: 10 intentos por minuto por IP en `/auth/register`, `/auth/login`, `/auth/login/pin`
+- Error response: `{ error: "Demasiados intentos. Espera un minuto..." }`
+- Las rutas `/auth/refresh` y `/auth/logout` no tienen límite (son operaciones pasivas)
+
+**Bug de TypeScript corregido (preexistente):**
+- `server/src/types/fastify.d.ts` — agregada extensión `FastifyContextConfig.rawBody?: boolean`
+- El typecheck ahora pasa limpio sin errores
+
+**Auditoría de secretos — resultado: LIMPIO**
+- Ningún secret, API key ni password hardcodeado en `server/src/`
+- Ningún secret en `apps/`
+- Los archivos `.env` y `.env.local` están en `.gitignore` — no se suben al repo
+- `server/.env` usa valores dev claramente marcados (`dev_secret_cambiar_en_produccion`)
+- Los JWT secrets en `.env` (raíz) son para desarrollo local únicamente
+
+#### Estado de preparación para deploy
+
+- ✅ Dockerfile correcto (multi-stage, Node 20 Alpine)
+- ✅ railway.toml correcto
+- ✅ DEPLOY.md con instrucciones completas
+- ✅ Rate limiting en rutas de auth
+- ✅ TypeScript sin errores
+- ✅ Sin secretos hardcodeados
+- ⬜ Ejecutar deploy en Railway (pendiente del desarrollador)
+- ⬜ Configurar Stripe (cuando se active billing)
+
+#### Próximos pasos
+
+1. **Ejecutar deploy** — seguir DEPLOY.md paso a paso (Railway → seed → Vercel → CORS)
+2. **Prueba piloto real** — correr el sistema en el restaurante piloto
+3. **Stripe** — crear productos/precios, activar billing
+
+> _Última actualización: Sesión 11 — Preparación de deploy, rate limiting y auditoría de seguridad_
 
