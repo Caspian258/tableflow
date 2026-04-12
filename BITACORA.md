@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 En producción — Historial de tickets completado
+## Fase actual: 🚀 En producción — App de cocina con sesión persistente y socket robusto
 
 ---
 
@@ -727,4 +727,44 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 3. **Tipos explícitos** — reemplazar `noImplicitAny: false` con tipos correctos en controllers
 
 > _Última actualización: Sesión 13 — Historial de tickets en admin_
+
+---
+
+### [Sesión 14] — App de cocina: sesión persistente + socket robusto
+
+**Fecha:** 2026-04-11
+**Fase:** Post-deploy — robustez operativa
+
+#### Qué se hizo en esta sesión
+
+**Problema 1: sesión perdida al recargar**
+- El store de Zustand es in-memory → al recargar el browser, el PIN se pedía de nuevo
+- **Solución:** persistencia en `localStorage` — `kitchen_session` guarda `{ user, accessToken, kitchenAlertSeconds }`
+  - `loadSession()` — lee y parsea al arrancar el store
+  - `saveSession()` — llamada en `setAuth` (login exitoso)
+  - `clearSession()` — llamada en `logout`
+  - `setAccessToken()` — actualiza también en localStorage para que reconexiones usen el token fresco
+  - Store se inicializa con `...loadSession()` para restaurar la sesión al montar
+
+**Problema 2: socket no se reconectaba / órdenes perdidas offline**
+- Al recargar, `connectSocket()` no se llamaba (era llamado solo en `LoginPage` al hacer login)
+- Socket usaba token estático en `auth: { token }` → tras refresh, reconexiones usaban token expirado
+- **Solución en `socket.ts`:**
+  - Auth callback dinámico: `auth: (cb) => cb({ token: useKitchenStore.getState().accessToken })`  
+    → cada intento de reconexión obtiene el token _actual_ del store
+  - `reconnectionAttempts: Infinity` + `reconnectionDelay: 1000ms`
+  - Al reconectar (`socket.io.on('reconnect')`): llama `GET /orders` y actualiza el store con las órdenes activas, recuperando cualquier cambio ocurrido mientras estuvo offline
+  - Si `socket?.connected` ya está activo, `connectSocket()` retorna el socket existente sin crear uno nuevo
+- **Solución en `App.tsx`:**
+  - `useEffect([], mount)` — si `user && accessToken` existen al arrancar (sesión restaurada), llama `connectSocket()` automáticamente
+  - Se eliminó el `useState` de pantalla — el estado reactivo del store es suficiente para manejar login/logout
+- `LoginPage.tsx` — `connectSocket()` ya no recibe el token como parámetro (lo toma del store)
+
+#### Próximos pasos
+
+1. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+2. **Stripe** — crear productos/precios, activar billing
+3. **Tipos explícitos** — reemplazar `noImplicitAny: false` con tipos correctos en controllers
+
+> _Última actualización: Sesión 14 — App de cocina con sesión persistente y socket robusto_
 
