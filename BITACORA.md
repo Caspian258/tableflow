@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 💳 Fase 3.6 completa — Flujo completo de orden y cierre de cuenta
+## Fase actual: 🚀 Deploy completado — Sistema en producción
 
 ---
 
@@ -639,4 +639,57 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 3. **Stripe** — crear productos/precios, activar billing
 
 > _Última actualización: Sesión 11 — Preparación de deploy, rate limiting y auditoría de seguridad_
+
+---
+
+### [Sesión 12] — Deploy a producción completado
+
+**Fecha:** 2026-04-11
+**Fase:** Deploy — ✅ COMPLETO
+
+#### Qué se hizo en esta sesión
+
+**Correcciones al Dockerfile y start.sh (proceso iterativo):**
+- Migrado de `node:20-alpine` a `node:20-slim` (mejor compatibilidad de binarios)
+- Reemplazado `npm install -g pnpm` por `npx --yes pnpm@9` (evita OOM en Railway)
+- Eliminado creación de usuarios (`groupadd/useradd`) — Railway no lo permite; se usa `USER node` preexistente
+- Agregado `openssl` en ambos stages (requerido por Prisma en Debian slim)
+- Corregida ruta de Prisma client: eliminada la línea `COPY .prisma` separada — el binario vive dentro del virtual store de pnpm en `node_modules` y ya se copia con el `COPY node_modules`
+- Agregado `COPY server/node_modules` al runner (pnpm pone los `.bin` de devDependencies del workspace en el node_modules local, no en el root)
+- `start.sh` actualizado con rutas absolutas: `/app/server/node_modules/.bin/prisma` y `node /app/server/dist/index.js`
+- Bajado `@fastify/rate-limit` de v10 a v9 — v10 requiere Fastify 5.x, el proyecto usa Fastify 4.x
+- Habilitado `noImplicitAny: false` en `server/tsconfig.json` para desbloquear build de producción
+
+**Deploy ejecutado:**
+- Servidor desplegado en Railway con PostgreSQL y Redis como plugins
+- Seed de producción corrido con `railway run pnpm db:seed`
+- Las 3 apps frontend desplegadas en Vercel con `VITE_API_URL` y `VITE_SOCKET_URL` configurados
+- CORS actualizado en Railway con las URLs de producción de Vercel
+
+#### URLs de producción
+
+| Servicio | URL |
+|----------|-----|
+| API (Railway) | https://tableflow-production-1104.up.railway.app |
+| Waiter (meseros) | https://tableflow-waiter.vercel.app |
+| Kitchen (KDS) | https://tableflow-kitchen.vercel.app |
+| Admin (dashboard) | https://tableflow-admin-mu.vercel.app |
+
+#### Estado del proyecto
+
+- ✅ Backend en producción (Railway + PostgreSQL + Redis)
+- ✅ apps/waiter en producción (Vercel)
+- ✅ apps/kitchen en producción (Vercel)
+- ✅ apps/admin en producción (Vercel)
+- ✅ Seed corrido — restaurante El Piloto con menú, mesas y usuarios listos
+- ✅ Rate limiting en rutas de auth (10 req/min por IP)
+
+#### Próximos pasos
+
+1. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+2. **Stripe** — crear productos/precios en el dashboard de Stripe, activar billing
+3. **Tipos explícitos** — agregar tipos en callbacks de controllers (reemplazar `noImplicitAny: false`)
+4. **Monitoreo** — revisar logs en Railway durante las primeras sesiones de uso
+
+> _Última actualización: Sesión 12 — Deploy a producción completado_
 
