@@ -34,7 +34,7 @@ export default function LoginPage({ onLogin }: Props) {
       }>('/auth/login/pin', { pin, restaurantSlug: restaurantSlug ?? slugInput })
 
       setAuth(res.data.user, res.data.accessToken, res.data.kitchenAlertSeconds)
-      connectSocket(res.data.accessToken)
+      connectSocket()
       onLogin()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PIN incorrecto')

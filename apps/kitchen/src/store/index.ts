@@ -32,21 +32,68 @@ interface KitchenStore {
   clearNewItems: (orderId: string) => void
 }
 
+// ─── Persistencia de sesión en localStorage ───────────────────────────────────
+
+const SESSION_KEY = 'kitchen_session'
+
+interface StoredSession {
+  user: AuthUser
+  accessToken: string
+  kitchenAlertSeconds: number
+}
+
+function loadSession(): Pick<KitchenStore, 'user' | 'accessToken' | 'kitchenAlertSeconds'> {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return { user: null, accessToken: null, kitchenAlertSeconds: 600 }
+    const s = JSON.parse(raw) as StoredSession
+    return { user: s.user, accessToken: s.accessToken, kitchenAlertSeconds: s.kitchenAlertSeconds }
+  } catch {
+    return { user: null, accessToken: null, kitchenAlertSeconds: 600 }
+  }
+}
+
+function saveSession(user: AuthUser, accessToken: string, kitchenAlertSeconds: number) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ user, accessToken, kitchenAlertSeconds }))
+  } catch { /* storage lleno o deshabilitado */ }
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY) } catch { /* noop */ }
+}
+
+// ─── Store ────────────────────────────────────────────────────────────────────
+
 export const useKitchenStore = create<KitchenStore>((set, get) => ({
-  user: null,
-  accessToken: null,
-  kitchenAlertSeconds: 600,
+  // Restaurar sesión desde localStorage al arrancar
+  ...loadSession(),
   restaurantSlug:
     typeof window !== 'undefined' ? localStorage.getItem('restaurantSlug') : null,
 
-  setAuth: (user, accessToken, kitchenAlertSeconds) =>
-    set({ user, accessToken, kitchenAlertSeconds }),
-  setAccessToken: (accessToken) => set({ accessToken }),
+  setAuth: (user, accessToken, kitchenAlertSeconds) => {
+    saveSession(user, accessToken, kitchenAlertSeconds)
+    set({ user, accessToken, kitchenAlertSeconds })
+  },
+  setAccessToken: (accessToken) => {
+    // Actualizar token en localStorage para que el socket use el nuevo en reconexiones
+    try {
+      const raw = localStorage.getItem(SESSION_KEY)
+      if (raw) {
+        const s = JSON.parse(raw) as StoredSession
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, accessToken }))
+      }
+    } catch { /* noop */ }
+    set({ accessToken })
+  },
   setRestaurantSlug: (slug) => {
     localStorage.setItem('restaurantSlug', slug)
     set({ restaurantSlug: slug })
   },
-  logout: () => set({ user: null, accessToken: null, orders: [], orderMeta: {} }),
+  logout: () => {
+    clearSession()
+    set({ user: null, accessToken: null, orders: [], orderMeta: {} })
+  },
 
   orders: [],
   orderMeta: {},
