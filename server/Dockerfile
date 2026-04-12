@@ -26,7 +26,6 @@ COPY server/          server/
 
 RUN npx pnpm@9 --filter server build
 RUN npx pnpm@9 --filter server exec prisma generate
-RUN find /app -type d -name ".prisma" 2>/dev/null && find /app -type d -name "libquery_engine*" 2>/dev/null || echo "prisma: no binary found"
 
 # ─── Stage 2: Producción ─────────────────────────────────────────────────────
 FROM node:20-slim AS runner
@@ -39,7 +38,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl \
 COPY --from=builder /app/node_modules               ./node_modules
 COPY --from=builder /app/server/dist                ./server/dist
 COPY --from=builder /app/server/prisma              ./server/prisma
-COPY --from=builder /app/server/node_modules/.prisma ./server/node_modules/.prisma
 
 COPY server/package.json ./server/package.json
 COPY package.json        ./package.json
