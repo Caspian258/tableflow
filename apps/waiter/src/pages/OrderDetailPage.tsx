@@ -29,7 +29,6 @@ export default function OrderDetailPage() {
   const orders = useAppStore((s) => s.orders)
   const tables = useAppStore((s) => s.tables)
   const updateOrderStatus = useAppStore((s) => s.updateOrderStatus)
-  const updateTableStatus = useAppStore((s) => s.updateTableStatus)
   const upsertOrder = useAppStore((s) => s.upsertOrder)
   const removeOrderItem = useAppStore((s) => s.removeOrderItem)
 
@@ -54,10 +53,8 @@ export default function OrderDetailPage() {
     try {
       await api.patch(`/orders/${orderId}/status`, { status })
       updateOrderStatus(orderId, status)
-      if (status === 'delivered' && order) {
-        updateTableStatus(order.tableId, 'available')
-        navigate('/tables')
-      }
+      // 'delivered' solo cambia el status visual — el mesero se queda en la orden
+      // para poder cerrar la cuenta después. La mesa no se libera hasta 'paid'.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar la orden')
     } finally {

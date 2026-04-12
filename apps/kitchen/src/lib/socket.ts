@@ -3,7 +3,10 @@ import type { OrderDTO, SocketEvent } from '@tableflow/shared'
 import { useKitchenStore } from '../store/index'
 import { api } from './api'
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001'
+const BASE_URL =
+  (import.meta.env.VITE_SOCKET_URL as string | undefined) ??
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  'http://localhost:3001'
 
 let socket: Socket | null = null
 

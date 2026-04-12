@@ -49,10 +49,11 @@ export default function TablesPage() {
       return
     }
     if (table.status === 'occupied' || table.status === 'reserved') {
+      // Incluir 'delivered': la orden sigue abierta hasta que se cobra
       const activeOrder = orders.find(
         (o) =>
           o.tableId === table.id &&
-          !['delivered', 'paid', 'cancelled'].includes(o.status),
+          !['paid', 'cancelled'].includes(o.status),
       )
       if (activeOrder) {
         navigate(`/orders/${activeOrder.id}`)
@@ -60,9 +61,9 @@ export default function TablesPage() {
     }
   }
 
-  // Mapa: tableId → orden activa
+  // Mapa: tableId → orden activa (incluye 'delivered' — aún no cobrada)
   const orderByTable = orders.reduce<Record<string, OrderDTO>>((acc, o) => {
-    if (!['delivered', 'paid', 'cancelled'].includes(o.status)) {
+    if (!['paid', 'cancelled'].includes(o.status)) {
       acc[o.tableId] = o
     }
     return acc

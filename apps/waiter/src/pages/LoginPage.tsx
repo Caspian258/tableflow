@@ -25,7 +25,7 @@ export default function LoginPage() {
         { email, password },
       )
       setAuth(res.data.user, res.data.accessToken)
-      connectSocket(res.data.accessToken)
+      connectSocket()
       navigate('/tables')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
