@@ -26,6 +26,7 @@ COPY server/          server/
 
 RUN npx pnpm@9 --filter server build
 RUN npx pnpm@9 --filter server exec prisma generate
+RUN find /app -type d -name ".prisma" 2>/dev/null && find /app -type d -name "libquery_engine*" 2>/dev/null || echo "prisma: no binary found"
 
 # ─── Stage 2: Producción ─────────────────────────────────────────────────────
 FROM node:20-slim AS runner
