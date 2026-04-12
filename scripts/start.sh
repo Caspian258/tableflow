@@ -2,7 +2,8 @@
 set -e
 
 echo "[start] Ejecutando migraciones de base de datos..."
-node_modules/.bin/prisma migrate deploy --schema=server/prisma/schema.prisma
+cd /app/server
+node_modules/.bin/prisma migrate deploy
+echo "[start] Migraciones completadas."
 
-echo "[start] Iniciando servidor..."
-exec node server/dist/index.js
+exec node dist/index.js
