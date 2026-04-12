@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/node_modules               ./node_modules
+COPY --from=builder /app/server/node_modules        ./server/node_modules
 COPY --from=builder /app/server/dist                ./server/dist
 COPY --from=builder /app/server/prisma              ./server/prisma
 
