@@ -39,8 +39,8 @@ export default function KDSPage({ onLogout }: Props) {
     api
       .get<{ data: OrderDTO[] }>('/orders')
       .then((res) => {
-        const active = res.data.filter(
-          (o) => o.status === 'pending' || o.status === 'in_progress',
+        const active = res.data.filter((o) =>
+          o.status === 'pending' || o.status === 'in_progress' || o.status === 'ready',
         )
         setOrders(active)
       })
@@ -68,6 +68,7 @@ export default function KDSPage({ onLogout }: Props) {
 
   const pending = orders.filter((o) => o.status === 'pending')
   const inProgress = orders.filter((o) => o.status === 'in_progress')
+  const ready = orders.filter((o) => o.status === 'ready')
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -149,6 +150,37 @@ export default function KDSPage({ onLogout }: Props) {
               </div>
             )}
             {inProgress.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                kitchenAlertSeconds={kitchenAlertSeconds}
+                newItemIds={orderMeta[order.id]?.newItemIds ?? new Set()}
+                cancelledItemIds={orderMeta[order.id]?.cancelledItemIds ?? new Set()}
+                onAction={handleAction}
+                loading={loadingOrderId === order.id}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Columna Listas */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-4 py-2 bg-green-900/30 border-b border-green-700/40 shrink-0">
+            <h2 className="text-green-400 font-bold text-sm uppercase tracking-wider">
+              ✓ Listas para entregar
+              <span className="ml-2 bg-green-500 text-white text-xs font-black rounded-full px-2 py-0.5">
+                {ready.length}
+              </span>
+            </h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {ready.length === 0 && (
+              <div className="flex items-center justify-center h-32 text-slate-600">
+                Sin órdenes listas
+              </div>
+            )}
+            {ready.map((order) => (
               <OrderCard
                 key={order.id}
                 order={order}
