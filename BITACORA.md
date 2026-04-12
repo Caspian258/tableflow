@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 En producción — App de cocina con sesión persistente y socket robusto
+## Fase actual: 🚀 En producción — Flujo de entrega corregido, sockets robustos en waiter y kitchen
 
 ---
 
@@ -767,4 +767,38 @@ Todos los endpoints de settings requieren rol `owner` o `manager`.
 3. **Tipos explícitos** — reemplazar `noImplicitAny: false` con tipos correctos en controllers
 
 > _Última actualización: Sesión 14 — App de cocina con sesión persistente y socket robusto_
+
+---
+
+### [Sesión 15] — Fix flujo de entrega + sockets robustos en waiter y kitchen
+
+**Fecha:** 2026-04-11
+**Fase:** Post-deploy — corrección de bugs operativos
+
+#### Qué se hizo en esta sesión
+
+**Bug 1 — "Marcar como entregada" cerraba la orden:**
+
+El problema tenía tres capas:
+
+- `OrderDetailPage.tsx`: al hacer `handleStatusChange('delivered')` se llamaba `navigate('/tables')` y `updateTableStatus('available')`. Se eliminaron ambas. El mesero ahora permanece en la orden para poder cerrar la cuenta después.
+- `socket.ts` (waiter): el handler de `order:status_changed` tenía un bloque que marcaba la mesa como `available` cuando `event.status === 'delivered'`. Eliminado. La mesa solo se libera en `order:paid`.
+- `TablesPage.tsx`: el mapa `orderByTable` y `handleTablePress` excluían órdenes con status `'delivered'`. Se cambió la exclusión a solo `['paid', 'cancelled']`, para que el mesero pueda seguir navegando a órdenes entregadas-no-cobradas desde la vista de mesas.
+
+**Bug 2 — Socket sin reconexión robusta (waiter y kitchen):**
+
+- `waiter/socket.ts`: auth callback dinámico (igual que kitchen), `reconnectionAttempts: Infinity`, `reconnectionDelay: 1000ms`, URL usa `VITE_SOCKET_URL ?? VITE_API_URL ?? localhost`. Al reconectar, recarga mesas y órdenes desde el API.
+- `kitchen/socket.ts`: ya tenía reconexión robusta (sesión 14); se agregó soporte para `VITE_SOCKET_URL ?? VITE_API_URL`.
+- `connectSocket()` en ambas apps ya no recibe el token como parámetro — lo lee dinámicamente del store en cada intento.
+- **Admin app**: no tiene socket (solo analytics on-demand). No requiere cambios.
+
+**Deploy:** push a `main` → Railway y Vercel redesplegarán automáticamente.
+
+#### Próximos pasos
+
+1. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+2. **Stripe** — crear productos/precios, activar billing
+3. **Sesión persistente en waiter** — igual que kitchen, guardar usuario en localStorage para no perder sesión al recargar
+
+> _Última actualización: Sesión 15 — Fix flujo de entrega + sockets robustos_
 
