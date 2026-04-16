@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 En producción — Tiempo real funcionando en las tres apps
+## Fase actual: 🚀 En producción — Analytics con zona horaria correcta
 
 ---
 
@@ -894,3 +894,54 @@ Waiter no guardaba la sesión en localStorage (a diferencia de kitchen). Al reca
 3. **Monitoreo** — revisar logs de Railway durante las primeras sesiones de uso real
 
 > _Última actualización: Sesión 16 — Bug crítico de tiempo real resuelto en producción_
+
+---
+
+### [Sesión 17] — Fix de zona horaria en analytics
+
+**Fecha:** 2026-04-15
+**Fase:** Post-deploy — corrección de bugs en producción
+
+#### Qué se hizo
+
+**Bug: horas pico incorrectas en el dashboard**
+
+`getPeakHours` usaba `order.createdAt.getHours()`, que devuelve la hora en UTC. Railway corre en UTC, pero el restaurante está en México (UTC-6). Las horas pico aparecían 6 horas adelantadas — el pico de comida a las 13:00 se veía como las 19:00.
+
+**Fix** (`server/src/controllers/analytics.controller.ts`):
+
+- Nueva constante `RESTAURANT_TZ = process.env.TZ_RESTAURANT ?? 'America/Mexico_City'`
+- Nueva función `getLocalHour(date)` usando `Intl.DateTimeFormat` con `timeZone: RESTAURANT_TZ` — nativo en Node.js, sin dependencias externas
+- `getPeakHours` ahora usa `getLocalHour(order.createdAt)` en lugar de `getHours()`
+
+```ts
+function getLocalHour(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: RESTAURANT_TZ,
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(date)
+  const h = parts.find((p) => p.type === 'hour')
+  return h ? parseInt(h.value, 10) % 24 : 0
+}
+```
+
+**Variable de entorno a agregar en Railway:**
+```
+TZ_RESTAURANT = America/Mexico_City
+```
+Se usa `TZ_RESTAURANT` (no `TZ`) para no afectar los timestamps del proceso Node.js ni los logs de Fastify. Queda configurable por si el sistema escala a restaurantes en otras zonas horarias.
+
+#### Commit
+
+| Hash | Descripción |
+|------|-------------|
+| `6c996d5` | fix(analytics): corregir horas pico a zona horaria del restaurante |
+
+#### Próximos pasos
+
+1. **Agregar `TZ_RESTAURANT=America/Mexico_City`** en Railway → Variables (manual, no está en el repo)
+2. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+3. **Stripe** — crear productos/precios, activar billing
+
+> _Última actualización: Sesión 17 — Fix de zona horaria en analytics_
