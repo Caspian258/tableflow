@@ -13,6 +13,10 @@ export function initSocket(httpServer: HttpServer, app: FastifyInstance): Server
           : true,
       credentials: true,
     },
+    // Keepalive: evita que Railway cierre conexiones WebSocket inactivas
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 30000,
   })
 
   // Verificar JWT antes de aceptar la conexión

@@ -22,14 +22,17 @@ export function connectSocket(): Socket {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
   })
 
   socket.on('connect', () => console.log('[kds] socket conectado'))
   socket.on('disconnect', (r) => console.log('[kds] socket desconectado:', r))
 
   // Al reconectar: recargar órdenes activas para no perderse cambios mientras estuvo offline
-  socket.io.on('reconnect', () => {
-    console.log('[kds] socket reconectado — recargando órdenes')
+  // El servidor re-une al cliente a su room automáticamente en el evento 'connection'
+  socket.io.on('reconnect', (attempt: number) => {
+    console.log(`[kds] socket reconectado (intento ${attempt}) — re-joining room y recargando órdenes`)
     api
       .get<{ data: OrderDTO[] }>('/orders')
       .then((res) => {

@@ -22,14 +22,17 @@ export function connectSocket(): Socket {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
   })
 
   socket.on('connect', () => console.log('[socket] conectado'))
   socket.on('disconnect', (reason) => console.log('[socket] desconectado:', reason))
 
   // Al reconectar: recargar mesas y órdenes para no perderse cambios mientras estuvo offline
-  socket.io.on('reconnect', () => {
-    console.log('[socket] reconectado — recargando datos')
+  // El servidor re-une al cliente a su room automáticamente en el evento 'connection'
+  socket.io.on('reconnect', (attempt: number) => {
+    console.log(`[socket] reconectado (intento ${attempt}) — re-joining room y recargando datos`)
     const store = useAppStore.getState()
     Promise.all([
       api.get<{ data: TableDTO[] }>('/tables'),
