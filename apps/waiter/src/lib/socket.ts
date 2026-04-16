@@ -18,6 +18,7 @@ export function connectSocket(): Socket {
     // Callback dinámico: cada intento de reconexión obtiene el token actual del store
     auth: (cb: (data: { token: string | null }) => void) =>
       cb({ token: useAppStore.getState().accessToken }),
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,

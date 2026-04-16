@@ -8,6 +8,42 @@ import type {
   OrderStatus,
 } from '@tableflow/shared'
 
+// ─── Persistencia de sesión en localStorage ───────────────────────────────────
+
+const SESSION_KEY = 'waiter_session'
+
+interface StoredSession {
+  user: AuthUser
+  accessToken: string
+}
+
+function loadSession(): { user: AuthUser | null; accessToken: string | null } {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return { user: null, accessToken: null }
+    const s = JSON.parse(raw) as StoredSession
+    return { user: s.user, accessToken: s.accessToken }
+  } catch {
+    return { user: null, accessToken: null }
+  }
+}
+
+function saveSession(user: AuthUser, accessToken: string) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ user, accessToken }))
+  } catch {
+    // localStorage no disponible (p.ej. Safari en modo privado)
+  }
+}
+
+function clearSession() {
+  try {
+    localStorage.removeItem(SESSION_KEY)
+  } catch {
+    // ignorar
+  }
+}
+
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
 export interface CartItem {
@@ -59,13 +95,27 @@ interface AppStore {
 }
 
 export const useAppStore = create<AppStore>((set) => ({
-  // Auth
-  user: null,
-  accessToken: null,
-  setAuth: (user, accessToken) => set({ user, accessToken }),
-  setAccessToken: (accessToken) => set({ accessToken }),
-  logout: () =>
-    set({ user: null, accessToken: null, tables: [], orders: [], menu: null, cart: [], cartTableId: null }),
+  // Auth — inicializado desde localStorage si hay sesión guardada
+  ...loadSession(),
+  setAuth: (user, accessToken) => {
+    saveSession(user, accessToken)
+    set({ user, accessToken })
+  },
+  setAccessToken: (accessToken) => {
+    // Actualizar también en localStorage para que reconexiones usen el token fresco
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (raw) {
+      try {
+        const s = JSON.parse(raw) as StoredSession
+        saveSession(s.user, accessToken)
+      } catch { /* ignorar */ }
+    }
+    set({ accessToken })
+  },
+  logout: () => {
+    clearSession()
+    set({ user: null, accessToken: null, tables: [], orders: [], menu: null, cart: [], cartTableId: null })
+  },
 
   // Tables
   tables: [],

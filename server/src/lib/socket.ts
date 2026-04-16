@@ -7,7 +7,10 @@ let _io: Server
 export function initSocket(httpServer: HttpServer, app: FastifyInstance): Server {
   _io = new Server(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+      origin:
+        process.env.NODE_ENV === 'production'
+          ? (process.env.FRONTEND_URL?.split(',') ?? false)
+          : true,
       credentials: true,
     },
   })

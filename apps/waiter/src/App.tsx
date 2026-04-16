@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAppStore } from './store/index'
+import { connectSocket } from './lib/socket'
 import LoginPage from './pages/LoginPage'
 import TablesPage from './pages/TablesPage'
 import NewOrderPage from './pages/NewOrderPage'
@@ -14,6 +16,17 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const user = useAppStore((s) => s.user)
+  const accessToken = useAppStore((s) => s.accessToken)
+
+  // Si hay sesión restaurada desde localStorage al arrancar, conectar el socket
+  useEffect(() => {
+    if (user && accessToken) {
+      connectSocket()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
