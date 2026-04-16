@@ -19,7 +19,7 @@ Al **terminar** una sesión:
 
 ---
 
-## Fase actual: 🚀 En producción — Flujo de entrega corregido, sockets robustos en waiter y kitchen
+## Fase actual: 🚀 En producción — Tiempo real funcionando en las tres apps
 
 ---
 
@@ -802,3 +802,95 @@ El problema tenía tres capas:
 
 > _Última actualización: Sesión 15 — Fix flujo de entrega + sockets robustos_
 
+---
+
+### [Sesión 16] — Bug crítico de tiempo real resuelto en producción
+
+**Fecha:** 2026-04-15
+**Fase:** Post-deploy — corrección de bugs en producción
+
+#### Síntoma
+
+Las tres apps (waiter, kitchen, admin) no se actualizaban en tiempo real. El usuario tenía que recargar manualmente para ver cambios. Admin no usa socket (analytics on-demand), así que el problema real era waiter y kitchen.
+
+#### Causa raíz — Bug 1: CORS de Socket.io roto
+
+`server/src/lib/socket.ts` pasaba `FRONTEND_URL` directamente como string al verificador de CORS de Socket.io:
+
+```ts
+// ROTO
+origin: process.env.FRONTEND_URL ?? 'http://localhost:5173'
+```
+
+En producción, `FRONTEND_URL` es una cadena con comas:
+`"https://tableflow-admin-mu.vercel.app,https://tableflow-waiter.vercel.app,https://tableflow-kitchen.vercel.app"`
+
+El verificador CORS comparaba ese string completo contra el header `Origin` del navegador — no coincidían → handshake de Socket.io rechazado → sin conexión → sin tiempo real. La API REST sí funcionaba porque Fastify CORS ya usaba `.split(',')` correctamente.
+
+**Fix:** aplicar el mismo patrón que ya usaba Fastify CORS:
+```ts
+origin: process.env.NODE_ENV === 'production'
+  ? (process.env.FRONTEND_URL?.split(',') ?? false)
+  : true,
+```
+
+#### Causa agravante — Bug 2: transport close por inactividad en Railway
+
+Railway cierra conexiones WebSocket inactivas. Sin keepalive configurado, el socket caía con `"transport close"` y los clientes quedaban en bucle de reconexión.
+
+**Fix en servidor** (`server/src/lib/socket.ts`):
+- `pingInterval: 25000` — ping cada 25s para mantener la conexión viva
+- `pingTimeout: 60000` — declara la conexión muerta solo después de 60s sin respuesta
+- `upgradeTimeout: 30000` — da 30s al handshake de upgrade polling → WebSocket
+
+**Fix en clientes** (waiter y kitchen `socket.ts`):
+- `transports: ['websocket', 'polling']` — intenta WebSocket primero (antes hacía polling primero)
+- `reconnectionDelayMax: 5000` — limita el backoff exponencial a 5s máximo
+- `timeout: 20000` — detecta conexiones colgadas a los 20s
+- Log de reconexión mejorado: muestra número de intento y confirma re-join a la room
+
+#### Bug adicional resuelto — Cookie cross-site rechazada
+
+La cookie `refresh_token` era rechazada con error `"SameSite Lax/Strict en contexto cross-site"` porque Vercel y Railway son dominios distintos.
+
+**Fix** (`server/src/controllers/auth.controller.ts`):
+```ts
+const isProd = process.env.NODE_ENV === 'production'
+// En los tres setCookie (register, login, loginWithPin):
+secure: isProd,
+sameSite: isProd ? 'none' : 'lax',
+```
+
+`SameSite: None` es el único valor que permite enviar la cookie en requests cross-site; requiere `Secure: true` (HTTPS), que en producción siempre se cumple.
+
+#### Bug adicional resuelto — Sesión persistente en waiter
+
+Waiter no guardaba la sesión en localStorage (a diferencia de kitchen). Al recargar la página el usuario perdía la sesión y el socket no se reconectaba.
+
+**Fix** (`apps/waiter/src/store/index.ts` y `App.tsx`):
+- `loadSession()` / `saveSession()` / `clearSession()` con clave `waiter_session` en localStorage
+- `setAuth`, `setAccessToken` y `logout` actualizan localStorage
+- `App.tsx` llama `connectSocket()` al montar si hay sesión restaurada (igual que kitchen)
+
+#### Commits
+
+| Hash | Descripción |
+|------|-------------|
+| `c6d2f11` | fix(socket): CORS, transports y sesión waiter |
+| `527ca4a` | fix(socket): keepalive y timeouts para Railway |
+| `4cef202` | fix(auth): cookie cross-site con SameSite None en producción |
+
+#### Estado actual
+
+- ✅ Tiempo real funcionando en waiter y kitchen sin recargar
+- ✅ Cookie de refresh token enviada correctamente en producción
+- ✅ Socket sobrevive desconexiones temporales y reconecta automáticamente
+- ✅ Sesión del mesero persiste al recargar la página
+
+#### Próximos pasos
+
+1. **Prueba piloto real** — usar el sistema en el restaurante con clientes reales
+2. **Stripe** — crear productos/precios, activar billing
+3. **Monitoreo** — revisar logs de Railway durante las primeras sesiones de uso real
+
+> _Última actualización: Sesión 16 — Bug crítico de tiempo real resuelto en producción_
