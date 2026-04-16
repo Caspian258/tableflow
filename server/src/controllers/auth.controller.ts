@@ -88,8 +88,8 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
 
   reply.setCookie(REFRESH_TOKEN_COOKIE, rawToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/auth',
     expires: refreshExpiresAt,
   })
@@ -121,6 +121,7 @@ const LoginSchema = z.object({
 
 const REFRESH_TOKEN_COOKIE = 'refresh_token'
 const REFRESH_EXPIRES_DAYS = 7
+const isProd = process.env.NODE_ENV === 'production'
 
 export async function login(request: FastifyRequest, reply: FastifyReply) {
   const result = LoginSchema.safeParse(request.body)
@@ -157,8 +158,8 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 
   reply.setCookie(REFRESH_TOKEN_COOKIE, rawToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/auth',
     expires: expiresAt,
   })
@@ -222,8 +223,8 @@ export async function loginWithPin(request: FastifyRequest, reply: FastifyReply)
 
   reply.setCookie(REFRESH_TOKEN_COOKIE, rawToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/auth',
     expires: expiresAt,
   })
