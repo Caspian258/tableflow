@@ -25,6 +25,20 @@ function percentile(sorted: number[], p: number) {
   return Math.round(sorted[Math.max(0, idx)] * 10) / 10
 }
 
+const RESTAURANT_TZ = process.env.TZ_RESTAURANT ?? 'America/Mexico_City'
+
+/** Extrae la hora (0-23) de una fecha UTC convirtiéndola a la zona horaria del restaurante. */
+function getLocalHour(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: RESTAURANT_TZ,
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(date)
+  const h = parts.find((p) => p.type === 'hour')
+  // Intl puede devolver '24' para la medianoche en algunos entornos — normalizar con % 24
+  return h ? parseInt(h.value, 10) % 24 : 0
+}
+
 // ─── GET /analytics/sales ─────────────────────────────────────────────────────
 
 export async function getSales(request: FastifyRequest, reply: FastifyReply) {
@@ -153,7 +167,7 @@ export async function getPeakHours(request: FastifyRequest, reply: FastifyReply)
 
   const byHour = new Array(24).fill(0) as number[]
   for (const order of orders) {
-    byHour[order.createdAt.getHours()]++
+    byHour[getLocalHour(order.createdAt)]++
   }
 
   const data = byHour.map((orders, hour) => ({ hour, orders }))
